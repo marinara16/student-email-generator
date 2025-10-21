@@ -82,7 +82,7 @@ def parse_grade(grade_value):
         return 0, "Missing"
     
     if grade_str.lower() in ["not graded yet", "ungraded", "pending"]:
-        return None, "Not Graded Yet"
+        return None, "Submitted"
     
     try:
         points = float(grade_str)
@@ -112,8 +112,8 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
             return f"• {assignment_name}: Done Late/{max_points} points"
     elif status == "Missing":
         return f"• {assignment_name}: Missing/{max_points} points"
-    elif status == "Not Graded Yet":
-        return f"• {assignment_name}: Not yet graded/{max_points} points"
+    elif status == "Submitted":
+        return f"• {assignment_name}: Submitted/{max_points} points (Pending Grade)"
     else:
         return f"• {assignment_name}: _/{max_points} points"
 
@@ -303,7 +303,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### Grade Format Guide")
-    st.code("5 or 15.5 = Graded\nLate: 5 = Late submission\nMissing = Not submitted\nNot Graded Yet = Pending\nBlank = Not assigned")
+    st.code("5 or 15 = Graded\nLate = Late submission\nMissing = Not submitted\nSubmitted = Pending\nBlank = Not assigned")
     
     st.markdown("---")
     if st.session_state.generated_data is not None:
@@ -540,13 +540,13 @@ else:
     st.markdown("Your CSV should have:")
     st.markdown("• **Student Name** column (required)")
     st.markdown("• Any number of assignment columns with any names you choose")
-    st.markdown("• Grade values as numbers, 'Late: X', 'Missing', 'Not Graded Yet', or blank")
+    st.markdown("• Grade values as numbers, 'Late: X', 'Missing', 'Submitted', or blank")
     
     example_data = {
         "Student Name": ["John Doe", "Jane Smith"],
         "Starter Pack Quiz": ["5", "Late: 4"],
         "Assignment 1": ["5", "Missing"],
-        "Assignment 2": ["15", "Not Graded Yet"],
+        "Assignment 2": ["15", "Submitted"],
         "Final Project": ["18", "15"]
     }
     st.dataframe(pd.DataFrame(example_data))
