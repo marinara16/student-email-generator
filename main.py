@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import csv
 from io import StringIO
+import json
 
 # Page configuration
 st.set_page_config(
@@ -136,13 +137,54 @@ Best regards,"""
     
     return email_body
 
+# Initialize session state for tracking sent emails
+if 'sent_status' not in st.session_state:
+    st.session_state.sent_status = {}
+if 'generated_data' not in st.session_state:
+    st.session_state.generated_data = None
+
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .student-card {
+        background-color: #f0f2f6;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    .copy-button {
+        background-color: #4CAF50;
+    }
+    .student-name {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1f77b4;
+    }
+    .points-badge {
+        font-size: 18px;
+        font-weight: bold;
+        padding: 5px 10px;
+        border-radius: 5px;
+        display: inline-block;
+    }
+    .points-high {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .points-medium {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .points-low {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Streamlit UI
 st.title("📧 Student Progress Email Generator")
-st.markdown("### Comic Book Writing Course")
-
-st.markdown("""
-Upload your exported Google Sheets CSV file, and this tool will automatically generate personalized emails for each student.
-""")
+st.markdown("### Comic Book Writing Course - Enhanced Workflow")
 
 # Sidebar for configuration
 with st.sidebar:
@@ -163,6 +205,16 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Grade Format Guide")
     st.code("5 or 15.5 = Graded\nLate: 5 = Late submission\nMissing = Not submitted\nNot Graded Yet = Pending\nBlank = Not assigned")
+    
+    st.markdown("---")
+    if st.session_state.generated_data is not None:
+        sent_count = sum(1 for v in st.session_state.sent_status.values() if v)
+        total_count = len(st.session_state.generated_data)
+        st.metric("📊 Progress", f"{sent_count}/{total_count} sent")
+        
+        if sent_count > 0:
+            progress_pct = (sent_count / total_count) * 100
+            st.progress(progress_pct / 100)
 
 # File uploader
 uploaded_file = st.file_uploader("Upload Student Grades CSV", type=['csv'])
@@ -195,7 +247,10 @@ if uploaded_file is not None:
                     email_body = generate_email_body(row)
                     total_points = calculate_total_points(row)
                     
+                    student_id = f"{row['First Name']}_{row['Last Name']}_{row['Email Address']}"
+                    
                     results.append({
+                        "student_id": student_id,
                         "Email": row["Email Address"],
                         "First Name": row["First Name"],
                         "Last Name": row["Last Name"],
@@ -204,16 +259,20 @@ if uploaded_file is not None:
                         "Total Points": total_points
                     })
                     
+                    # Initialize sent status
+                    if student_id not in st.session_state.sent_status:
+                        st.session_state.sent_status[student_id] = False
+                    
                     progress_bar.progress((idx + 1) / len(df))
                     status_text.text(f"Processing {idx + 1}/{len(df)}: {row['First Name']} {row['Last Name']}")
                 
                 status_text.text("✅ All emails generated!")
-                
-                # Create output dataframe
-                output_df = pd.DataFrame(results)
+                st.session_state.generated_data = results
                 
                 # Display statistics
+                st.markdown("---")
                 col1, col2, col3 = st.columns(3)
+                output_df = pd.DataFrame(results)
                 with col1:
                     st.metric("Total Students", len(results))
                 with col2:
@@ -222,36 +281,133 @@ if uploaded_file is not None:
                 with col3:
                     completion_eligible = len(output_df[output_df["Total Points"] >= 80])
                     st.metric("On Track for Completion", completion_eligible)
-                
-                # Show sample email
+            
+            # Display individual student emails with copy buttons
+            if st.session_state.generated_data is not None:
                 st.markdown("---")
-                st.subheader("📬 Sample Email Preview")
-                sample_student = st.selectbox(
-                    "Select a student to preview their email:",
-                    output_df["First Name"] + " " + output_df["Last Name"]
-                )
+                st.header("📬 Individual Student Emails")
                 
-                sample_idx = output_df.index[output_df["First Name"] + " " + output_df["Last Name"] == sample_student][0]
-                sample_email = output_df.iloc[sample_idx]
+                # Filter options
+                col1, col2 = st.columns(2)
+                with col1:
+                    show_sent = st.checkbox("Show already sent", value=True)
+                with col2:
+                    show_unsent = st.checkbox("Show not sent", value=True)
                 
-                st.text_area("Email Body", sample_email["Email Body"], height=400)
+                for idx, student_data in enumerate(st.session_state.generated_data):
+                    student_id = student_data["student_id"]
+                    is_sent = st.session_state.sent_status.get(student_id, False)
+                    
+                    # Filter based on sent status
+                    if (is_sent and not show_sent) or (not is_sent and not show_unsent):
+                        continue
+                    
+                    # Determine points badge color
+                    points = student_data["Total Points"]
+                    if points >= 80:
+                        badge_class = "points-high"
+                        badge_text = "🏆 Completion Track"
+                    elif points >= 40:
+                        badge_class = "points-medium"
+                        badge_text = "📜 Participation Track"
+                    else:
+                        badge_class = "points-low"
+                        badge_text = "⚠️ Below Threshold"
+                    
+                    # Student card
+                    with st.container():
+                        st.markdown(f"""
+                        <div class="student-card">
+                            <span class="student-name">
+                                {student_data['First Name']} {student_data['Last Name']}
+                            </span>
+                            <span class="points-badge {badge_class}">
+                                {points} points - {badge_text}
+                            </span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col1, col2, col3 = st.columns([3, 1, 1])
+                        
+                        with col1:
+                            st.text(f"📧 Email: {student_data['Email']}")
+                        
+                        with col2:
+                            # Copy to clipboard button
+                            if st.button(f"📋 Copy Email", key=f"copy_{student_id}", type="primary"):
+                                # JavaScript to copy to clipboard
+                                st.components.v1.html(
+                                    f"""
+                                    <script>
+                                        navigator.clipboard.writeText(`{student_data['Email Body'].replace('`', '\\`')}`);
+                                    </script>
+                                    """,
+                                    height=0
+                                )
+                                st.success("✅ Copied!", icon="✅")
+                        
+                        with col3:
+                            # Mark as sent checkbox
+                            sent = st.checkbox(
+                                "✓ Sent" if is_sent else "Mark Sent",
+                                value=is_sent,
+                                key=f"sent_{student_id}"
+                            )
+                            st.session_state.sent_status[student_id] = sent
+                        
+                        # Show email preview in expander
+                        with st.expander("👁️ Preview Email"):
+                            st.text_area(
+                                "Email Body",
+                                student_data["Email Body"],
+                                height=400,
+                                key=f"preview_{student_id}",
+                                label_visibility="collapsed"
+                            )
+                        
+                        st.markdown("---")
                 
-                # Download button
-                st.markdown("---")
-                csv_buffer = StringIO()
-                output_df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_ALL)
-                csv_string = csv_buffer.getvalue()
+                # Download CSV option
+                st.markdown("### 💾 Export Options")
+                col1, col2 = st.columns(2)
                 
-                st.download_button(
-                    label="⬇️ Download HubSpot Import CSV",
-                    data=csv_string,
-                    file_name="hubspot_import.csv",
-                    mime="text/csv",
-                    type="primary"
-                )
+                with col1:
+                    output_df = pd.DataFrame(st.session_state.generated_data)
+                    output_df = output_df.drop('student_id', axis=1)
+                    csv_buffer = StringIO()
+                    output_df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_ALL)
+                    csv_string = csv_buffer.getvalue()
+                    
+                    st.download_button(
+                        label="⬇️ Download All Emails (CSV)",
+                        data=csv_string,
+                        file_name="hubspot_import.csv",
+                        mime="text/csv"
+                    )
                 
-                st.success("🎉 Ready to import into HubSpot!")
+                with col2:
+                    # Export sent status log
+                    sent_log = []
+                    for student in st.session_state.generated_data:
+                        sent_log.append({
+                            "Name": f"{student['First Name']} {student['Last Name']}",
+                            "Email": student['Email'],
+                            "Sent": "Yes" if st.session_state.sent_status.get(student['student_id'], False) else "No"
+                        })
+                    
+                    log_df = pd.DataFrame(sent_log)
+                    log_buffer = StringIO()
+                    log_df.to_csv(log_buffer, index=False)
+                    
+                    st.download_button(
+                        label="📊 Download Send Log",
+                        data=log_buffer.getvalue(),
+                        file_name="email_send_log.csv",
+                        mime="text/csv"
+                    )
                 
+    except FileNotFoundError:
+        st.error("Error: Could not find the uploaded file")
     except Exception as e:
         st.error(f"❌ Error processing file: {str(e)}")
 else:
@@ -279,4 +435,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("Made for Comic Book Writing Course | Need help? Contact your administrator")
+st.markdown("Made for Comic Book Writing Course | Enhanced with Copy & Track Features")
