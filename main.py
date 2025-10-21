@@ -91,6 +91,7 @@ def calculate_total_points(row):
 
 def generate_email_body(row):
     """Generate personalized email body for a student."""
+    first_name = row["First Name"]
     total_points = calculate_total_points(row)
     
     progress_lines = []
@@ -108,13 +109,31 @@ def generate_email_body(row):
     progress_section = "\n".join(progress_lines)
     upcoming_section = "\n".join(upcoming_lines)
     
-    email_body = f""" **Current Total: {total_points} points**
+    email_body = f"""Hey {first_name},
+
+I hope you're doing well! I am reaching out to you because we've passed Class #9, and I wanted to check in with a quick progress update and see how things are going for you in our **Comic Book Writing** course.
+
+Your current progress is summarized below. Please note this only reflects the assignments that have been graded so far. There are still assignments that haven't been assigned or graded!
+
+**Current Total: {total_points} points**
 
 **Progress so far:**
 {progress_section}
 
 **Upcoming Assignments:**
 {upcoming_section}
+
+**IMPORTANT:** Keep in mind that the minimum scores for our two certificate types are:
+   1. Certificate of Completion: 80+ points total
+   2. Certificate of Participation: 40 to 79 points total
+
+To view step-by-step instructions on how to check your grade and calculate your points, please visit: https://drive.google.com/file/d/1Yc-k1RbunBx9DzCLxOsSvET1SumNFzuy/view?usp=sharing
+
+If you'd ever like to discuss your assignments or the possibility of extensions, please don't hesitate to reach out — I'm happy to help.
+
+Finally, I'd love to hear how the course has been going so far — what you've enjoyed, what's been most useful, or if there's anything we could improve. If you'd prefer to talk it through, we can also schedule a quick phone call. To schedule a phone call with me, please visit: https://meetings.hubspot.com/mariana-aldavaz
+
+Best regards,"""
     
     return email_body
 
@@ -127,7 +146,12 @@ if 'generated_data' not in st.session_state:
 # Custom CSS for better styling
 st.markdown("""
 <style>
-
+    .student-card {
+        background-color: #f0f2f6;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
     .copy-button {
         background-color: #4CAF50;
     }
@@ -160,7 +184,7 @@ st.markdown("""
 
 # Streamlit UI
 st.title("📧 Student Grade Summary Generator")
-st.markdown("### Quick Grade Snippets for HubSpot")
+st.markdown("### Comic Book Writing Course - Quick Grade Snippets for HubSpot")
 
 st.info("💡 **New Workflow:** This app now generates ONLY the grade summary section. Copy and paste it into your HubSpot email template!")
 
