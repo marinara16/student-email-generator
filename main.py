@@ -305,3 +305,94 @@ if uploaded_file is not None:
                     st.metric("Average Points", f"{avg_points:.1f}")
                 with col3:
                     completion_eligible = len(output_df[output_df["Total Points"] >= 80])
+                    st.metric("On Track for Completion", completion_eligible)
+            
+            if st.session_state.generated_data is not None:
+                st.markdown("---")
+                st.header("📊 Individual Student Grade Summaries")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    show_sent = st.checkbox("Show already sent", value=True)
+                with col2:
+                    show_unsent = st.checkbox("Show not sent", value=True)
+                
+                for idx, student_data in enumerate(st.session_state.generated_data):
+                    student_id = student_data["student_id"]
+                    is_sent = st.session_state.sent_status.get(student_id, False)
+                    
+                    if (is_sent and not show_sent) or (not is_sent and not show_unsent):
+                        continue
+                    
+                    points = student_data["Total Points"]
+                    if points >= 80:
+                        badge_class = "points-high"
+                        badge_text = "🏆 Completion Track"
+                    elif points >= 40:
+                        badge_class = "points-medium"
+                        badge_text = "📜 Participation Track"
+                    else:
+                        badge_class = "points-low"
+                        badge_text = "⚠️ Below Threshold"
+                    
+                    with st.container():
+                        st.markdown(f"""
+                        <div class="student-card">
+                            <span class="student-name">{student_data['Student Name']}</span>
+                            <span class="points-badge {badge_class}">{points} points - {badge_text}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col1, col2 = st.columns([2, 1])
+                        with col1:
+                            st.text(f"👤 {student_data['Student Name']}")
+                        with col2:
+                            sent = st.checkbox("✓ Sent" if is_sent else "Mark Sent", value=is_sent, key=f"sent_{student_id}")
+                            st.session_state.sent_status[student_id] = sent
+                        
+                        with st.expander("👁️ Preview Grade Summary"):
+                            st.text_area("Grade Summary", student_data["Grade Summary"], height=300, key=f"preview_{student_id}", label_visibility="collapsed")
+                        
+                        st.markdown("---")
+                
+                st.markdown("### 💾 Export Options")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    output_df = pd.DataFrame(st.session_state.generated_data)
+                    output_df = output_df.drop('student_id', axis=1)
+                    csv_buffer = StringIO()
+                    output_df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_ALL)
+                    csv_string = csv_buffer.getvalue()
+                    
+                    st.download_button("⬇️ Download All Emails (CSV)", csv_string, file_name="hubspot_import.csv", mime="text/csv")
+                
+                with col2:
+                    sent_log = [{"Name": s["Student Name"], "Sent": "Yes" if st.session_state.sent_status.get(s["student_id"], False) else "No"} for s in st.session_state.generated_data]
+                    log_df = pd.DataFrame(sent_log)
+                    log_buffer = StringIO()
+                    log_df.to_csv(log_buffer, index=False)
+                    st.download_button("📊 Download Send Log", log_buffer.getvalue(), file_name="email_send_log.csv", mime="text/csv")
+    except Exception as e:
+        st.error(f"❌ Error processing file: {str(e)}")
+else:
+    st.info("👆 Upload your CSV file to get started")
+
+    st.markdown("---")
+    st.subheader("📋 Expected CSV Format")
+    example_data = {
+        "Student Name": ["John Doe", "Jane Smith"],
+        "Starter Pack Quiz": ["5", "Late: 4"],
+        "Assignment 1": ["5", "Missing"],
+        "Assignment 2": ["15", "Not Graded Yet"],
+        "Assignment 3": ["18", "15"],
+        "Mid Course Feedback Form": ["2", "2"],
+        "Assignment 4": ["-", "-"],
+    }
+    st.dataframe(pd.DataFrame(example_data))
+
+# ------------------------------------------------------------
+# FOOTER
+# ------------------------------------------------------------
+st.markdown("---")
+st.markdown("Made for Comic Book Writing Course | Enhanced with Copy, Track & Editable Configurations")
