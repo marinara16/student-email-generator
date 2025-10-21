@@ -4,15 +4,19 @@ import csv
 from io import StringIO
 import json
 
-# Page configuration
+# ------------------------------------------------------------
+# PAGE CONFIGURATION
+# ------------------------------------------------------------
 st.set_page_config(
     page_title="Student Email Generator",
     page_icon="📧",
     layout="wide"
 )
 
-# Assignment configurations
-ASSIGNMENTS = {
+# ------------------------------------------------------------
+# INITIALIZE ASSIGNMENT CONFIGURATION
+# ------------------------------------------------------------
+DEFAULT_ASSIGNMENTS = {
     "Starter Pack Quiz": {"max_points": 5, "assigned": True},
     "Assignment 1": {"max_points": 5, "assigned": True},
     "Assignment 2": {"max_points": 15, "assigned": True},
@@ -25,6 +29,14 @@ ASSIGNMENTS = {
     "End Course Feedback Form": {"max_points": 3, "assigned": False}
 }
 
+if "assignments" not in st.session_state:
+    st.session_state.assignments = DEFAULT_ASSIGNMENTS.copy()
+
+ASSIGNMENTS = st.session_state.assignments
+
+# ------------------------------------------------------------
+# FUNCTIONS
+# ------------------------------------------------------------
 def parse_grade(grade_value):
     """Parse grade value and return status and points."""
     if pd.isna(grade_value) or str(grade_value).strip() in ["", "-"]:
@@ -60,8 +72,6 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
         return f"• {assignment_name}: worth {max_points} points"
     
     points, status = parse_grade(grade_value)
-    
-    # Format points as integer if it's a whole number
     if points is not None and points == int(points):
         points = int(points)
     if max_points == int(max_points):
@@ -92,7 +102,6 @@ def calculate_total_points(row):
             points, status = parse_grade(grade_value)
             if points is not None and status in ["Graded", "Done Late"]:
                 total += points
-    # Return as integer if it's a whole number
     return int(total) if total == int(total) else total
 
 def generate_email_body(row):
@@ -106,7 +115,6 @@ def generate_email_body(row):
     for assignment, config in ASSIGNMENTS.items():
         grade_value = row.get(assignment)
         line = format_assignment_line(assignment, grade_value, config["max_points"], config["assigned"])
-        
         if config["assigned"]:
             progress_lines.append(line)
         else:
@@ -125,13 +133,17 @@ Upcoming Assignments:
     
     return email_body
 
-# Initialize session state for tracking sent emails
+# ------------------------------------------------------------
+# SESSION STATE
+# ------------------------------------------------------------
 if 'sent_status' not in st.session_state:
     st.session_state.sent_status = {}
 if 'generated_data' not in st.session_state:
     st.session_state.generated_data = None
 
-# Custom CSS for better styling
+# ------------------------------------------------------------
+# CUSTOM CSS
+# ------------------------------------------------------------
 st.markdown("""
 <style>
     .student-card {
@@ -139,9 +151,6 @@ st.markdown("""
         padding: 20px;
         border-radius: 10px;
         margin-bottom: 20px;
-    }
-    .copy-button {
-        background-color: #4CAF50;
     }
     .student-name {
         font-size: 24px;
@@ -170,51 +179,85 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Streamlit UI
+# ------------------------------------------------------------
+# MAIN UI
+# ------------------------------------------------------------
 st.title("📧 Student Grade Summary Generator")
 st.markdown("### Quick Grade Snippets for HubSpot")
 
-st.info("💡 **New Workflow:** This app now generates ONLY the grade summary section. Copy and paste it into your HubSpot email template!")
+st.info("💡 **New Workflow:** You can now edit assignment configurations for any class!")
 
-# Sidebar for configuration
+# ------------------------------------------------------------
+# SIDEBAR CONFIGURATION
+# ------------------------------------------------------------
 with st.sidebar:
     st.header("⚙️ Configuration")
-    st.markdown("### Assignment Settings")
-    
-    with st.expander("View/Edit Assignments"):
-        st.markdown("**Assigned Assignments:**")
-        for name, config in ASSIGNMENTS.items():
-            if config["assigned"]:
-                st.write(f"• {name}: {config['max_points']} points")
-        
-        st.markdown("**Upcoming Assignments:**")
-        for name, config in ASSIGNMENTS.items():
-            if not config["assigned"]:
-                st.write(f"• {name}: {config['max_points']} points")
-    
-    st.markdown("---")
-    st.markdown("### Grade Format Guide")
-    st.code("5 or 15.5 = Graded\nLate: 5 = Late submission\nMissing = Not submitted\nNot Graded Yet = Pending\nBlank = Not assigned")
-    
-    st.markdown("---")
-    if st.session_state.generated_data is not None:
-        sent_count = sum(1 for v in st.session_state.sent_status.values() if v)
-        total_count = len(st.session_state.generated_data)
-        st.metric("📊 Progress", f"{sent_count}/{total_count} sent")
-        
-        if sent_count > 0:
-            progress_pct = (sent_count / total_count) * 100
-            st.progress(progress_pct / 100)
 
-# File uploader
+    with st.expander("✏️ Edit Assignments", expanded=False):
+        st.markdown("Modify your class setup or load a saved one.")
+
+        # Add new assignment
+        with st.form("add_assignment_form", clear_on_submit=True):
+            st.subheader("Add New Assignment")
+            new_name = st.text_input("Assignment Name")
+            new_points = st.number_input("Max Points", min_value=1, max_value=200, value=10)
+            new_assigned = st.checkbox("Already Assigned?", value=True)
+            submitted = st.form_submit_button("Add Assignment")
+            if submitted and new_name:
+                st.session_state.assignments[new_name] = {
+                    "max_points": new_points,
+                    "assigned": new_assigned
+                }
+                st.success(f"Added '{new_name}'")
+
+        st.markdown("---")
+        st.subheader("Current Assignments")
+
+        remove_list = []
+        for name, config in list(st.session_state.assignments.items()):
+            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+            with col1:
+                new_name = st.text_input("Name", name, key=f"name_{name}")
+            with col2:
+                new_points = st.number_input("Max Points", min_value=1, value=config["max_points"], key=f"points_{name}")
+            with col3:
+                new_assigned = st.checkbox("Assigned?", value=config["assigned"], key=f"assigned_{name}")
+            with col4:
+                if st.button("🗑️", key=f"delete_{name}"):
+                    remove_list.append(name)
+            
+            st.session_state.assignments[name] = {
+                "max_points": new_points,
+                "assigned": new_assigned
+            }
+            if new_name != name:
+                st.session_state.assignments[new_name] = st.session_state.assignments.pop(name)
+
+        for r in remove_list:
+            st.session_state.assignments.pop(r, None)
+            st.warning(f"Removed '{r}'")
+
+        # Save / Load JSON config
+        st.markdown("---")
+        st.subheader("💾 Save / Load Configuration")
+        col1, col2 = st.columns(2)
+        with col1:
+            json_data = json.dumps(st.session_state.assignments, indent=2)
+            st.download_button("⬇️ Download Config (JSON)", json_data, file_name="assignments_config.json")
+        with col2:
+            uploaded_json = st.file_uploader("Upload Config JSON", type=["json"], key="upload_json")
+            if uploaded_json is not None:
+                st.session_state.assignments = json.load(uploaded_json)
+                st.success("✅ Loaded new assignment configuration!")
+
+# ------------------------------------------------------------
+# FILE UPLOAD
+# ------------------------------------------------------------
 uploaded_file = st.file_uploader("Upload Student Grades CSV", type=['csv'])
 
 if uploaded_file is not None:
     try:
-        # Read the CSV
         df = pd.read_csv(uploaded_file)
-        
-        # Verify required columns
         required_columns = ["Student Name"]
         missing_columns = [col for col in required_columns if col not in df.columns]
         
@@ -223,11 +266,9 @@ if uploaded_file is not None:
         else:
             st.success(f"✅ Successfully loaded data for {len(df)} students")
             
-            # Show preview
             with st.expander("📊 Preview Student Data"):
                 st.dataframe(df)
             
-            # Generate emails button
             if st.button("🚀 Generate Emails", type="primary"):
                 results = []
                 progress_bar = st.progress(0)
@@ -236,7 +277,6 @@ if uploaded_file is not None:
                 for idx, row in df.iterrows():
                     grade_summary = generate_email_body(row)
                     total_points = calculate_total_points(row)
-                    
                     student_id = f"{row['Student Name']}"
                     
                     results.append({
@@ -246,7 +286,6 @@ if uploaded_file is not None:
                         "Total Points": total_points
                     })
                     
-                    # Initialize sent status
                     if student_id not in st.session_state.sent_status:
                         st.session_state.sent_status[student_id] = False
                     
@@ -256,7 +295,6 @@ if uploaded_file is not None:
                 status_text.text("✅ All emails generated!")
                 st.session_state.generated_data = results
                 
-                # Display statistics
                 st.markdown("---")
                 col1, col2, col3 = st.columns(3)
                 output_df = pd.DataFrame(results)
@@ -267,142 +305,3 @@ if uploaded_file is not None:
                     st.metric("Average Points", f"{avg_points:.1f}")
                 with col3:
                     completion_eligible = len(output_df[output_df["Total Points"] >= 80])
-                    st.metric("On Track for Completion", completion_eligible)
-            
-            # Display individual student grade summaries
-            if st.session_state.generated_data is not None:
-                st.markdown("---")
-                st.header("📊 Individual Student Grade Summaries")
-                
-                # Filter options
-                col1, col2 = st.columns(2)
-                with col1:
-                    show_sent = st.checkbox("Show already sent", value=True)
-                with col2:
-                    show_unsent = st.checkbox("Show not sent", value=True)
-                
-                for idx, student_data in enumerate(st.session_state.generated_data):
-                    student_id = student_data["student_id"]
-                    is_sent = st.session_state.sent_status.get(student_id, False)
-                    
-                    # Filter based on sent status
-                    if (is_sent and not show_sent) or (not is_sent and not show_unsent):
-                        continue
-                    
-                    # Determine points badge color
-                    points = student_data["Total Points"]
-                    if points >= 80:
-                        badge_class = "points-high"
-                        badge_text = "🏆 Completion Track"
-                    elif points >= 40:
-                        badge_class = "points-medium"
-                        badge_text = "📜 Participation Track"
-                    else:
-                        badge_class = "points-low"
-                        badge_text = "⚠️ Below Threshold"
-                    
-                    # Student card
-                    with st.container():
-                        st.markdown(f"""
-                        <div class="student-card">
-                            <span class="student-name">
-                                {student_data['Student Name']}
-                            </span>
-                            <span class="points-badge {badge_class}">
-                                {points} points - {badge_text}
-                            </span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        col1, col2 = st.columns([2, 1])
-                        
-                        with col1:
-                            st.text(f"👤 {student_data['Student Name']}")
-                        
-                        with col2:
-                            # Mark as sent checkbox
-                            sent = st.checkbox(
-                                "✓ Sent" if is_sent else "Mark Sent",
-                                value=is_sent,
-                                key=f"sent_{student_id}"
-                            )
-                            st.session_state.sent_status[student_id] = sent
-                        
-                        # Show grade summary preview in expander
-                        with st.expander("👁️ Preview Grade Summary"):
-                            st.text_area(
-                                "Grade Summary",
-                                student_data["Grade Summary"],
-                                height=300,
-                                key=f"preview_{student_id}",
-                                label_visibility="collapsed"
-                            )
-                        
-                        st.markdown("---")
-                
-                # Download CSV option
-                st.markdown("### 💾 Export Options")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    output_df = pd.DataFrame(st.session_state.generated_data)
-                    output_df = output_df.drop('student_id', axis=1)
-                    csv_buffer = StringIO()
-                    output_df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_ALL)
-                    csv_string = csv_buffer.getvalue()
-                    
-                    st.download_button(
-                        label="⬇️ Download All Emails (CSV)",
-                        data=csv_string,
-                        file_name="hubspot_import.csv",
-                        mime="text/csv"
-                    )
-                
-                with col2:
-                    # Export sent status log
-                    sent_log = []
-                    for student in st.session_state.generated_data:
-                        sent_log.append({
-                            "Name": f"{student['Student Name']}",
-                            "Sent": "Yes" if st.session_state.sent_status.get(student['student_id'], False) else "No"
-                        })
-                    
-                    log_df = pd.DataFrame(sent_log)
-                    log_buffer = StringIO()
-                    log_df.to_csv(log_buffer, index=False)
-                    
-                    st.download_button(
-                        label="📊 Download Send Log",
-                        data=log_buffer.getvalue(),
-                        file_name="email_send_log.csv",
-                        mime="text/csv"
-                    )
-                
-    except FileNotFoundError:
-        st.error("Error: Could not find the uploaded file")
-    except Exception as e:
-        st.error(f"❌ Error processing file: {str(e)}")
-else:
-    st.info("👆 Upload your CSV file to get started")
-    
-    # Show example format
-    st.markdown("---")
-    st.subheader("📋 Expected CSV Format")
-    example_data = {
-        "Student Name": ["John Doe", "Jane Smith"],
-        "Total Points": ["-", "-"],
-        "Starter Pack Quiz": ["5", "Late: 4"],
-        "Assignment 1": ["5", "Missing"],
-        "Assignment 2": ["15", "Not Graded Yet"],
-        "Assignment 3": ["18", "15"],
-        "Mid Course Feedback Form": ["2", "2"],
-        "Assignment 4": ["-", "-"],
-        "Assignment 5": ["-", "-"],
-        "Assignment 6": ["-", "-"],
-        "End Course Feedback Form": ["-", "-"]
-    }
-    st.dataframe(pd.DataFrame(example_data))
-
-# Footer
-st.markdown("---")
-st.markdown("Made for Comic Book Writing Course | Enhanced with Copy & Track Features")
