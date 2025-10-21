@@ -111,12 +111,12 @@ def generate_email_body(row):
     
     email_body = f"""
 
-**Current Total: {total_points} points**
+CURRENT TOTAL: {total_points} points
 
-**Progress so far:**
+Progress so far:
 {progress_section}
 
-**Upcoming Assignments:**
+Upcoming Assignments:
 {upcoming_section}
 
 """
