@@ -11,8 +11,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Assignment configurations
-ASSIGNMENTS = {
 # Initialize session state for assignment configuration
 if 'assignments_config' not in st.session_state:
     st.session_state.assignments_config = ASSIGNMENTS.copy()
@@ -158,7 +156,6 @@ with st.sidebar:
         if sent_count > 0:
             progress_pct = (sent_count / total_count) * 100
             st.progress(progress_pct / 100)
-}
 
 def parse_grade(grade_value):
     """Parse grade value and return status and points."""
