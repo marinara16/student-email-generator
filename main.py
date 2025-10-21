@@ -231,12 +231,11 @@ if uploaded_file is not None:
                     grade_summary = generate_email_body(row)
                     total_points = calculate_total_points(row)
                     
-                    student_id = f"{row['First Name']}_{row['Last Name']}_{row['Email Address']}"
+                    student_id = f"{row['Student Name']}"
                     
                     results.append({
                         "student_id": student_id,
-                        "First Name": row["First Name"],
-                        "Last Name": row["Last Name"],
+                        "Student Name": row["Student Name"],
                         "Grade Summary": grade_summary,
                         "Total Points": total_points
                     })
@@ -246,7 +245,7 @@ if uploaded_file is not None:
                         st.session_state.sent_status[student_id] = False
                     
                     progress_bar.progress((idx + 1) / len(df))
-                    status_text.text(f"Processing {idx + 1}/{len(df)}: {row['First Name']} {row['Last Name']}")
+                    status_text.text(f"Processing {idx + 1}/{len(df)}: {row['Student Name']}")
                 
                 status_text.text("✅ All emails generated!")
                 st.session_state.generated_data = results
@@ -301,7 +300,7 @@ if uploaded_file is not None:
                         st.markdown(f"""
                         <div class="student-card">
                             <span class="student-name">
-                                {student_data['First Name']} {student_data['Last Name']}
+                                {student_data['Student Name']}
                             </span>
                             <span class="points-badge {badge_class}">
                                 {points} points - {badge_text}
@@ -312,7 +311,7 @@ if uploaded_file is not None:
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
-                            st.text(f"👤 {student_data['First Name']} {student_data['Last Name']}")
+                            st.text(f"👤 {student_data['Student Name']}")
                         
                         with col2:
                             # Mark as sent checkbox
@@ -358,7 +357,7 @@ if uploaded_file is not None:
                     sent_log = []
                     for student in st.session_state.generated_data:
                         sent_log.append({
-                            "Name": f"{student['First Name']} {student['Last Name']}",
+                            "Name": f"{student['Student Name']}",
                             "Sent": "Yes" if st.session_state.sent_status.get(student['student_id'], False) else "No"
                         })
                     
@@ -384,9 +383,7 @@ else:
     st.markdown("---")
     st.subheader("📋 Expected CSV Format")
     example_data = {
-        "Last Name": ["Doe", "Smith"],
-        "First Name": ["John", "Jane"],
-        "Email Address": ["john@example.com", "jane@example.com"],
+        "Student Name": ["John Doe", "Jane Smith"],
         "Total Points": ["-", "-"],
         "Starter Pack Quiz": ["5", "Late: 4"],
         "Assignment 1": ["5", "Missing"],
