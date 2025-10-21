@@ -56,11 +56,17 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
     
     points, status = parse_grade(grade_value)
     
+    # Format points as integer if it's a whole number
+    if points is not None and points == int(points):
+        points = int(points)
+    if max_points == int(max_points):
+        max_points = int(max_points)
+    
     if status == "Graded":
-        return f"   * {assignment_name}: {points:d}/{max_points} points"
+        return f"   * {assignment_name}: {points}/{max_points} points"
     elif status == "Done Late":
         if points is not None:
-            return f"   * {assignment_name}: {points:d}/{max_points} points (Done Late)"
+            return f"   * {assignment_name}: {points}/{max_points} points (Done Late)"
         else:
             return f"   * {assignment_name}: Done Late/{max_points} points"
     elif status == "Missing":
@@ -79,7 +85,8 @@ def calculate_total_points(row):
             points, status = parse_grade(grade_value)
             if points is not None and status in ["Graded", "Done Late"]:
                 total += points
-    return total
+    # Return as integer if it's a whole number
+    return int(total) if total == int(total) else total
 
 def generate_email_body(row):
     """Generate personalized email body for a student."""
@@ -107,7 +114,7 @@ I hope you're doing well! I am reaching out to you because we've passed Class #9
 
 Your current progress is summarized below. Please note this only reflects the assignments that have been graded so far. There are still assignments that haven't been assigned or graded!
 
-Current Total: {total_points:d} points
+Current Total: {total_points} points
 
 Progress so far:
 {progress_section}
