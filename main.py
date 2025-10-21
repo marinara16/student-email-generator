@@ -109,7 +109,7 @@ def generate_email_body(row):
     progress_section = "\n".join(progress_lines)
     upcoming_section = "\n".join(upcoming_lines)
     
-    email_body = f"""Hey {first_name},
+    email_body = f"""
 
 **Current Total: {total_points} points**
 
