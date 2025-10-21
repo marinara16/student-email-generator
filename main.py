@@ -333,13 +333,33 @@ if uploaded_file is not None:
                             st.text(f"📧 Email: {student_data['Email']}")
                         
                         with col2:
-                            # Copy to clipboard button
+                            # Copy to clipboard button with preserved formatting
+                            email_html = student_data['Email Body'].replace('\n', '<br>').replace('`', '\\`').replace('"', '\\"')
+                            email_text = student_data['Email Body'].replace('`', '\\`').replace('"', '\\"').replace('\n', '\\n')
+                            
                             if st.button(f"📋 Copy Email", key=f"copy_{student_id}", type="primary"):
-                                # JavaScript to copy to clipboard
+                                # JavaScript to copy with HTML formatting for rich text editors
                                 st.components.v1.html(
                                     f"""
                                     <script>
-                                        navigator.clipboard.writeText(`{student_data['Email Body'].replace('`', '\\`')}`);
+                                        const emailText = `{email_text}`;
+                                        const emailHtml = `{email_html}`;
+                                        
+                                        // Create a blob with both text and HTML formats
+                                        const textBlob = new Blob([emailText], {{ type: 'text/plain' }});
+                                        const htmlBlob = new Blob([emailHtml], {{ type: 'text/html' }});
+                                        
+                                        // Use ClipboardItem for better format preservation
+                                        if (navigator.clipboard && window.ClipboardItem) {{
+                                            const item = new ClipboardItem({{
+                                                'text/plain': textBlob,
+                                                'text/html': htmlBlob
+                                            }});
+                                            navigator.clipboard.write([item]);
+                                        }} else {{
+                                            // Fallback for older browsers
+                                            navigator.clipboard.writeText(emailText);
+                                        }}
                                     </script>
                                     """,
                                     height=0
