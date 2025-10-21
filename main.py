@@ -417,19 +417,25 @@ if raw_text and raw_text != st.session_state.raw_data:
             
             # Parse CSV into dataframe
             df = pd.read_csv(StringIO(cleaned_csv))
-            st.session_state.current_df = df
             
-            # Extract assignments and configure them
+            # Rename columns to remove brackets and extract assignment config
+            column_mapping = {}
             st.session_state.assignments_config = {}
+            
             for col in df.columns:
                 if col != "Student Name":
                     name, points = parse_assignment_name_and_points(col)
+                    column_mapping[col] = name  # Map old name to new clean name
                     # Check if assignment has any grades
                     has_grades = df[col].notna().any() and not all(df[col].fillna("").astype(str).str.strip() == "")
                     st.session_state.assignments_config[name] = {
                         "max_points": points,
                         "assigned": has_grades
                     }
+            
+            # Rename DataFrame columns to clean names (without brackets)
+            df = df.rename(columns=column_mapping)
+            st.session_state.current_df = df
             
             # Reset generated data when new data is pasted
             st.session_state.generated_data = None
