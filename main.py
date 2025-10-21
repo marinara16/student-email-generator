@@ -82,7 +82,7 @@ def parse_grade(grade_value):
         return 0, "Missing"
     
     if grade_str.lower() in ["not graded yet", "ungraded", "pending"]:
-        return None, "Not Graded Yet"
+        return None, "Submitted"
     
     try:
         points = float(grade_str)
@@ -113,7 +113,7 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
     elif status == "Missing":
         return f"• {assignment_name}: Missing/{max_points} points"
     elif status == "Not Graded Yet":
-        return f"• {assignment_name}: Not yet graded/{max_points} points"
+        return f"• {assignment_name}: Submitted/{max_points} points (Pending Grade)"
     else:
         return f"• {assignment_name}: _/{max_points} points"
 
