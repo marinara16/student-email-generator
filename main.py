@@ -183,8 +183,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Streamlit UI
-st.title("📧 Student Progress Email Generator")
-st.markdown("### Comic Book Writing Course - Enhanced Workflow")
+st.title("📧 Student Grade Summary Generator")
+st.markdown("### Comic Book Writing Course - Quick Grade Snippets for HubSpot")
+
+st.info("💡 **New Workflow:** This app now generates ONLY the grade summary section. Copy and paste it into your HubSpot email template!")
 
 # Sidebar for configuration
 with st.sidebar:
@@ -244,7 +246,7 @@ if uploaded_file is not None:
                 status_text = st.empty()
                 
                 for idx, row in df.iterrows():
-                    email_body = generate_email_body(row)
+                    grade_summary = generate_email_body(row)
                     total_points = calculate_total_points(row)
                     
                     student_id = f"{row['First Name']}_{row['Last Name']}_{row['Email Address']}"
@@ -254,8 +256,7 @@ if uploaded_file is not None:
                         "Email": row["Email Address"],
                         "First Name": row["First Name"],
                         "Last Name": row["Last Name"],
-                        "Subject": "Comic Book Writing Course - Progress Update",
-                        "Email Body": email_body,
+                        "Grade Summary": grade_summary,
                         "Total Points": total_points
                     })
                     
@@ -282,10 +283,10 @@ if uploaded_file is not None:
                     completion_eligible = len(output_df[output_df["Total Points"] >= 80])
                     st.metric("On Track for Completion", completion_eligible)
             
-            # Display individual student emails with copy buttons
+            # Display individual student grade summaries
             if st.session_state.generated_data is not None:
                 st.markdown("---")
-                st.header("📬 Individual Student Emails")
+                st.header("📊 Individual Student Grade Summaries")
                 
                 # Filter options
                 col1, col2 = st.columns(2)
@@ -341,12 +342,12 @@ if uploaded_file is not None:
                             )
                             st.session_state.sent_status[student_id] = sent
                         
-                        # Show email preview in expander
-                        with st.expander("👁️ Preview Email"):
+                        # Show grade summary preview in expander
+                        with st.expander("👁️ Preview Grade Summary"):
                             st.text_area(
-                                "Email Body",
-                                student_data["Email Body"],
-                                height=400,
+                                "Grade Summary",
+                                student_data["Grade Summary"],
+                                height=300,
                                 key=f"preview_{student_id}",
                                 label_visibility="collapsed"
                             )
