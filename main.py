@@ -166,7 +166,7 @@ st.markdown("""
 
 # Streamlit UI
 st.title("📧 Student Grade Summary Generator")
-st.markdown("### Comic Book Writing Course - Quick Grade Snippets for HubSpot")
+st.markdown("### Quick Grade Snippets for HubSpot")
 
 st.info("💡 **New Workflow:** This app now generates ONLY the grade summary section. Copy and paste it into your HubSpot email template!")
 
