@@ -111,10 +111,6 @@ def generate_email_body(row):
     
     email_body = f"""Hey {first_name},
 
-I hope you're doing well! I am reaching out to you because we've passed Class #9, and I wanted to check in with a quick progress update and see how things are going for you in our **Comic Book Writing** course.
-
-Your current progress is summarized below. Please note this only reflects the assignments that have been graded so far. There are still assignments that haven't been assigned or graded!
-
 **Current Total: {total_points} points**
 
 **Progress so far:**
@@ -123,17 +119,7 @@ Your current progress is summarized below. Please note this only reflects the as
 **Upcoming Assignments:**
 {upcoming_section}
 
-**IMPORTANT:** Keep in mind that the minimum scores for our two certificate types are:
-   1. Certificate of Completion: 80+ points total
-   2. Certificate of Participation: 40 to 79 points total
-
-To view step-by-step instructions on how to check your grade and calculate your points, please visit: https://drive.google.com/file/d/1Yc-k1RbunBx9DzCLxOsSvET1SumNFzuy/view?usp=sharing
-
-If you'd ever like to discuss your assignments or the possibility of extensions, please don't hesitate to reach out — I'm happy to help.
-
-Finally, I'd love to hear how the course has been going so far — what you've enjoyed, what's been most useful, or if there's anything we could improve. If you'd prefer to talk it through, we can also schedule a quick phone call. To schedule a phone call with me, please visit: https://meetings.hubspot.com/mariana-aldavaz
-
-Best regards,"""
+"""
     
     return email_body
 
