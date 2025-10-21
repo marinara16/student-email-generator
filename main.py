@@ -127,7 +127,13 @@ IMPORTANT: Keep in mind that the minimum scores for our two certificate types ar
    1. Certificate of Completion: 80+ points total
    2. Certificate of Participation: 40 to 79 points total
 
-<a href="https://drive.google.com/file/d/1Yc-k1RbunBx9DzCLxOsSvET1SumNFzuy/view?usp=sharing">Click here</a> to view step-by-step instructions on checking your grades and calc
+<a href="https://drive.google.com/file/d/1Yc-k1RbunBx9DzCLxOsSvET1SumNFzuy/view?usp=sharing">Click here</a> to view step-by-step instructions on checking your grades and calculating your points in Google Classroom.
+
+If you'd ever like to discuss your assignments or the possibility of extensions, please don't hesitate to reach out — I'm happy to help.
+
+Finally, I'd love to hear how the course has been going so far — what you've enjoyed, what's been most useful, or if there's anything we could improve. If you'd prefer to talk it through, we can also schedule a quick phone call. To schedule a phone call with me, <a href="https://meetings.hubspot.com/mariana-aldavaz">click here</a>.
+
+Best regards,"""
     
     return email_body
 
