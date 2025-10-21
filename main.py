@@ -132,7 +132,7 @@ st.markdown("""
 <style>
     .student-card {
         background-color: #f0f2f6;
-        padding: 10px 10px;
+        padding: 20px;
         border-radius: 10px;
         margin-bottom: 20px;
     }
