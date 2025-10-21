@@ -11,9 +11,168 @@ st.set_page_config(
     layout="wide"
 )
 
+# Assignment configurations (default starting values)
+ASSIGNMENTS = {
+    "Starter Pack Quiz": {"max_points": 5, "assigned": True},
+    "Assignment 1": {"max_points": 5, "assigned": True},
+    "Assignment 2": {"max_points": 15, "assigned": True},
+    "Assignment 3": {"max_points": 20, "assigned": True},
+    "Mid Course Feedback Form": {"max_points": 2, "assigned": True},
+    "Assignment 4": {"max_points": 20, "assigned": True},
+    "Assignment 5": {"max_points": 20, "assigned": False},
+    "Assignment 6": {"max_points": 20, "assigned": False},
+    "Assignment 7": {"max_points": 15, "assigned": False},
+    "End Course Feedback Form": {"max_points": 3, "assigned": False}
+}
+
+def parse_grade(grade_value):
+    """Parse grade value and return status and points."""
+    if pd.isna(grade_value) or str(grade_value).strip() in ["", "-"]:
+        return None, "Not yet assigned"
+    
+    grade_str = str(grade_value).strip()
+    
+    if grade_str.lower().startswith("late:"):
+        try:
+            points = float(grade_str.split(":")[1].strip())
+            return points, "Done Late"
+        except:
+            return None, "Done Late"
+    
+    if grade_str.lower() in ["missing", "not submitted"]:
+        return 0, "Missing"
+    
+    if grade_str.lower() in ["not graded yet", "ungraded", "pending"]:
+        return None, "Not Graded Yet"
+    
+    try:
+        points = float(grade_str)
+        return points, "Graded"
+    except:
+        return None, "Unknown"
+
+def format_assignment_line(assignment_name, grade_value, max_points, is_assigned):
+    """Format a single assignment line for the email."""
+    if not is_assigned:
+        return f"• {assignment_name}: worth {max_points} points"
+    
+    points, status = parse_grade(grade_value)
+    
+    # Format points as integer if it's a whole number
+    if points is not None and points == int(points):
+        points = int(points)
+    if max_points == int(max_points):
+        max_points = int(max_points)
+    
+    if status == "Graded":
+        return f"• {assignment_name}: {points}/{max_points} points"
+    elif status == "Done Late":
+        if points is not None:
+            return f"• {assignment_name}: {points}/{max_points} points (Done Late)"
+        else:
+            return f"• {assignment_name}: Done Late/{max_points} points"
+    elif status == "Missing":
+        return f"• {assignment_name}: Missing/{max_points} points"
+    elif status == "Not Graded Yet":
+        return f"• {assignment_name}: Not yet graded/{max_points} points"
+    else:
+        return f"• {assignment_name}: _/{max_points} points"
+
+def calculate_total_points(row):
+    """Calculate total points earned so far."""
+    total = 0
+    for assignment, config in st.session_state.assignments_config.items():
+        if config["assigned"]:
+            grade_value = row.get(assignment)
+            points, status = parse_grade(grade_value)
+            if points is not None and status in ["Graded", "Done Late"]:
+                total += points
+    # Return as integer if it's a whole number
+    return int(total) if total == int(total) else total
+
+def generate_email_body(row):
+    """Generate personalized email body for a student."""
+    first_name = row["Student Name"]
+    total_points = calculate_total_points(row)
+    
+    progress_lines = []
+    upcoming_lines = []
+    
+    for assignment, config in st.session_state.assignments_config.items():
+        grade_value = row.get(assignment)
+        line = format_assignment_line(assignment, grade_value, config["max_points"], config["assigned"])
+        
+        if config["assigned"]:
+            progress_lines.append(line)
+        else:
+            upcoming_lines.append(line)
+    
+    progress_section = "\n".join(progress_lines)
+    upcoming_section = "\n".join(upcoming_lines)
+    
+    email_body = f"""CURRENT TOTAL: {total_points} points
+
+Progress so far:
+{progress_section}
+
+Upcoming Assignments:
+{upcoming_section}"""
+    
+    return email_body
+
+# Initialize session state for tracking sent emails
+if 'sent_status' not in st.session_state:
+    st.session_state.sent_status = {}
+if 'generated_data' not in st.session_state:
+    st.session_state.generated_data = None
 # Initialize session state for assignment configuration
 if 'assignments_config' not in st.session_state:
     st.session_state.assignments_config = ASSIGNMENTS.copy()
+
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .student-card {
+        background-color: #f0f2f6;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    .copy-button {
+        background-color: #4CAF50;
+    }
+    .student-name {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1f77b4;
+    }
+    .points-badge {
+        font-size: 18px;
+        font-weight: bold;
+        padding: 5px 10px;
+        border-radius: 5px;
+        display: inline-block;
+    }
+    .points-high {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .points-medium {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .points-low {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Streamlit UI
+st.title("📧 Student Grade Summary Generator")
+st.markdown("### Quick Grade Snippets for HubSpot")
+
+st.info("💡 **New Workflow:** This app now generates ONLY the grade summary section. Copy and paste it into your HubSpot email template!")
 
 # Sidebar for configuration
 with st.sidebar:
@@ -142,182 +301,6 @@ with st.sidebar:
         total_assigned_points = sum(c["max_points"] for c in assigned_assignments.values())
         total_all_points = sum(c["max_points"] for c in st.session_state.assignments_config.values())
         st.info(f"📊 Total Assigned: {total_assigned_points} | Total Course: {total_all_points}")
-    
-    st.markdown("---")
-    st.markdown("### Grade Format Guide")
-    st.code("5 or 15.5 = Graded\nLate: 5 = Late submission\nMissing = Not submitted\nNot Graded Yet = Pending\nBlank = Not assigned")
-    
-    st.markdown("---")
-    if st.session_state.generated_data is not None:
-        sent_count = sum(1 for v in st.session_state.sent_status.values() if v)
-        total_count = len(st.session_state.generated_data)
-        st.metric("📊 Progress", f"{sent_count}/{total_count} sent")
-        
-        if sent_count > 0:
-            progress_pct = (sent_count / total_count) * 100
-            st.progress(progress_pct / 100)
-
-def parse_grade(grade_value):
-    """Parse grade value and return status and points."""
-    if pd.isna(grade_value) or str(grade_value).strip() in ["", "-"]:
-        return None, "Not yet assigned"
-    
-    grade_str = str(grade_value).strip()
-    
-    if grade_str.lower().startswith("late:"):
-        try:
-            points = float(grade_str.split(":")[1].strip())
-            return points, "Done Late"
-        except:
-            return None, "Done Late"
-    
-    if grade_str.lower() in ["missing", "not submitted"]:
-        return 0, "Missing"
-    
-    if grade_str.lower() in ["not graded yet", "ungraded", "pending"]:
-        return None, "Not Graded Yet"
-    
-    try:
-        points = float(grade_str)
-        return points, "Graded"
-    except:
-        return None, "Unknown"
-
-def format_assignment_line(assignment_name, grade_value, max_points, is_assigned):
-    """Format a single assignment line for the email."""
-    if not is_assigned:
-        return f"• {assignment_name}: worth {max_points} points"
-    
-    points, status = parse_grade(grade_value)
-    
-    # Format points as integer if it's a whole number
-    if points is not None and points == int(points):
-        points = int(points)
-    if max_points == int(max_points):
-        max_points = int(max_points)
-    
-    if status == "Graded":
-        return f"• {assignment_name}: {points}/{max_points} points"
-    elif status == "Done Late":
-        if points is not None:
-            return f"• {assignment_name}: {points}/{max_points} points (Done Late)"
-        else:
-            return f"• {assignment_name}: Done Late/{max_points} points"
-    elif status == "Missing":
-        return f"• {assignment_name}: Missing/{max_points} points"
-    elif status == "Not Graded Yet":
-        return f"• {assignment_name}: Not yet graded/{max_points} points"
-    else:
-        return f"• {assignment_name}: _/{max_points} points"
-
-def calculate_total_points(row):
-    """Calculate total points earned so far."""
-    total = 0
-    for assignment, config in ASSIGNMENTS.items():
-        if config["assigned"]:
-            grade_value = row.get(assignment)
-            points, status = parse_grade(grade_value)
-            if points is not None and status in ["Graded", "Done Late"]:
-                total += points
-    # Return as integer if it's a whole number
-    return int(total) if total == int(total) else total
-
-def generate_email_body(row):
-    """Generate personalized email body for a student."""
-    first_name = row["Student Name"]
-    total_points = calculate_total_points(row)
-    
-    progress_lines = []
-    upcoming_lines = []
-    
-    for assignment, config in ASSIGNMENTS.items():
-        grade_value = row.get(assignment)
-        line = format_assignment_line(assignment, grade_value, config["max_points"], config["assigned"])
-        
-        if config["assigned"]:
-            progress_lines.append(line)
-        else:
-            upcoming_lines.append(line)
-    
-    progress_section = "\n".join(progress_lines)
-    upcoming_section = "\n".join(upcoming_lines)
-    
-    email_body = f"""CURRENT TOTAL: {total_points} points
-
-Progress so far:
-{progress_section}
-
-Upcoming Assignments:
-{upcoming_section}"""
-    
-    return email_body
-
-# Initialize session state for tracking sent emails
-if 'sent_status' not in st.session_state:
-    st.session_state.sent_status = {}
-if 'generated_data' not in st.session_state:
-    st.session_state.generated_data = None
-
-# Custom CSS for better styling
-st.markdown("""
-<style>
-    .student-card {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }
-    .copy-button {
-        background-color: #4CAF50;
-    }
-    .student-name {
-        font-size: 24px;
-        font-weight: bold;
-        color: #1f77b4;
-    }
-    .points-badge {
-        font-size: 18px;
-        font-weight: bold;
-        padding: 5px 10px;
-        border-radius: 5px;
-        display: inline-block;
-    }
-    .points-high {
-        background-color: #d4edda;
-        color: #155724;
-    }
-    .points-medium {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-    .points-low {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Streamlit UI
-st.title("📧 Student Grade Summary Generator")
-st.markdown("### Quick Grade Snippets for HubSpot")
-
-st.info("💡 **New Workflow:** This app now generates ONLY the grade summary section. Copy and paste it into your HubSpot email template!")
-
-# Sidebar for configuration
-with st.sidebar:
-    st.header("⚙️ Configuration")
-    st.markdown("### Assignment Settings")
-    
-    with st.expander("View/Edit Assignments"):
-        st.markdown("**Assigned Assignments:**")
-        for name, config in ASSIGNMENTS.items():
-            if config["assigned"]:
-                st.write(f"• {name}: {config['max_points']} points")
-        
-        st.markdown("**Upcoming Assignments:**")
-        for name, config in ASSIGNMENTS.items():
-            if not config["assigned"]:
-                st.write(f"• {name}: {config['max_points']} points")
     
     st.markdown("---")
     st.markdown("### Grade Format Guide")
