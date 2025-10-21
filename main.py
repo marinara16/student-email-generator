@@ -82,7 +82,7 @@ def parse_grade(grade_value):
         return 0, "Missing"
     
     if grade_str.lower() in ["not graded yet", "ungraded", "pending"]:
-        return None, "Submitted"
+        return None, "Not Graded Yet"
     
     try:
         points = float(grade_str)
@@ -113,7 +113,7 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
     elif status == "Missing":
         return f"• {assignment_name}: Missing/{max_points} points"
     elif status == "Not Graded Yet":
-        return f"• {assignment_name}: Submitted/{max_points} points (Pending Grade)"
+        return f"• {assignment_name}: Not yet graded/{max_points} points"
     else:
         return f"• {assignment_name}: _/{max_points} points"
 
@@ -176,6 +176,8 @@ if 'assignments_config' not in st.session_state:
     st.session_state.assignments_config = {}
 if 'current_df' not in st.session_state:
     st.session_state.current_df = None
+if 'last_file_id' not in st.session_state:
+    st.session_state.last_file_id = None
 if 'csv_columns' not in st.session_state:
     st.session_state.csv_columns = []
 
@@ -239,7 +241,7 @@ with st.sidebar:
                     new_assigned = st.checkbox(
                         "✓ Assigned (graded/grading)",
                         value=config["assigned"],
-                        key=f"assigned_{idx}",
+                        key=f"assigned_{idx}_{name}",
                         help="Check if this assignment has been assigned to students"
                     )
                 
@@ -249,7 +251,7 @@ with st.sidebar:
                         value=config["max_points"],
                         min_value=0,
                         step=1,
-                        key=f"points_{idx}",
+                        key=f"points_{idx}_{name}",
                         help="Maximum points for this assignment"
                     )
                 
@@ -259,6 +261,20 @@ with st.sidebar:
                 }
                 
                 st.markdown("---")
+            
+            # Add reset button
+            if st.button("🔄 Reset to Auto-Detected Values", use_container_width=True):
+                if st.session_state.current_df is not None:
+                    assignment_columns = detect_assignment_columns(st.session_state.current_df)
+                    st.session_state.assignments_config = {}
+                    for col in assignment_columns:
+                        max_pts = estimate_max_points(st.session_state.current_df, col)
+                        has_grades = st.session_state.current_df[col].notna().any()
+                        st.session_state.assignments_config[col] = {
+                            "max_points": max_pts,
+                            "assigned": has_grades
+                        }
+                    st.rerun()
         
         # Show current configuration summary
         with st.expander("👁️ View Current Setup"):
@@ -317,8 +333,11 @@ if uploaded_file is not None:
             if not assignment_columns:
                 st.error("❌ No assignment columns detected! CSV should have columns other than 'Student Name'.")
             else:
-                # Initialize assignment config when CSV is first loaded
-                if st.session_state.current_df is None or not st.session_state.assignments_config:
+                # Check if this is a new file by comparing file name or content
+                current_file_id = uploaded_file.name + str(len(df))
+                
+                # Initialize assignment config only for NEW files
+                if 'last_file_id' not in st.session_state or st.session_state.last_file_id != current_file_id:
                     st.session_state.assignments_config = {}
                     for col in assignment_columns:
                         max_pts = estimate_max_points(df, col)
@@ -328,6 +347,12 @@ if uploaded_file is not None:
                             "max_points": max_pts,
                             "assigned": has_grades
                         }
+                    st.session_state.last_file_id = current_file_id
+                    st.session_state.current_df = df
+                    st.session_state.csv_columns = list(df.columns)
+                    st.rerun()  # Rerun to show the detected assignments
+                else:
+                    # Same file, just update the dataframe reference
                     st.session_state.current_df = df
                     st.session_state.csv_columns = list(df.columns)
                 
