@@ -21,6 +21,7 @@ ASSIGNMENTS = {
     "Assignment 4": {"max_points": 20, "assigned": True},
     "Assignment 5": {"max_points": 20, "assigned": False},
     "Assignment 6": {"max_points": 20, "assigned": False},
+    "Assignment 7": {"max_points": 15, "assigned": False},
     "End Course Feedback Form": {"max_points": 3, "assigned": False}
 }
 
