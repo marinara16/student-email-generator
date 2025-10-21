@@ -253,7 +253,6 @@ if uploaded_file is not None:
                     
                     results.append({
                         "student_id": student_id,
-                        "Email": row["Email Address"],
                         "First Name": row["First Name"],
                         "Last Name": row["Last Name"],
                         "Grade Summary": grade_summary,
@@ -328,10 +327,10 @@ if uploaded_file is not None:
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        col1, col2 = st.columns([3, 1])
+                        col1, col2 = st.columns([2, 1])
                         
                         with col1:
-                            st.text(f"📧 Email: {student_data['Email']}")
+                            st.text(f"👤 {student_data['First Name']} {student_data['Last Name']}")
                         
                         with col2:
                             # Mark as sent checkbox
@@ -378,7 +377,6 @@ if uploaded_file is not None:
                     for student in st.session_state.generated_data:
                         sent_log.append({
                             "Name": f"{student['First Name']} {student['Last Name']}",
-                            "Email": student['Email'],
                             "Sent": "Yes" if st.session_state.sent_status.get(student['student_id'], False) else "No"
                         })
                     
