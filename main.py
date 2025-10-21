@@ -327,29 +327,23 @@ if uploaded_file is not None:
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        col1, col2, col3 = st.columns([3, 1, 1])
+                        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
                         
                         with col1:
                             st.text(f"📧 Email: {student_data['Email']}")
                         
                         with col2:
-                            # Copy to clipboard button with preserved formatting
+                            # Copy as Rich Text button
                             email_html = student_data['Email Body'].replace('\n', '<br>').replace('`', '\\`').replace('"', '\\"')
-                            email_text = student_data['Email Body'].replace('`', '\\`').replace('"', '\\"').replace('\n', '\\n')
                             
-                            if st.button(f"📋 Copy Email", key=f"copy_{student_id}", type="primary"):
-                                # JavaScript to copy with HTML formatting for rich text editors
+                            if st.button(f"📋 Copy (Rich)", key=f"copy_rich_{student_id}", type="primary"):
                                 st.components.v1.html(
                                     f"""
                                     <script>
-                                        const emailText = `{email_text}`;
                                         const emailHtml = `{email_html}`;
-                                        
-                                        // Create a blob with both text and HTML formats
-                                        const textBlob = new Blob([emailText], {{ type: 'text/plain' }});
+                                        const textBlob = new Blob([emailHtml.replace(/<br>/g, '\\n')], {{ type: 'text/plain' }});
                                         const htmlBlob = new Blob([emailHtml], {{ type: 'text/html' }});
                                         
-                                        // Use ClipboardItem for better format preservation
                                         if (navigator.clipboard && window.ClipboardItem) {{
                                             const item = new ClipboardItem({{
                                                 'text/plain': textBlob,
@@ -357,16 +351,30 @@ if uploaded_file is not None:
                                             }});
                                             navigator.clipboard.write([item]);
                                         }} else {{
-                                            // Fallback for older browsers
-                                            navigator.clipboard.writeText(emailText);
+                                            navigator.clipboard.writeText(emailHtml.replace(/<br>/g, '\\n'));
                                         }}
                                     </script>
                                     """,
                                     height=0
                                 )
-                                st.success("✅ Copied!", icon="✅")
+                                st.success("✅ Rich Text Copied!", icon="✅")
                         
                         with col3:
+                            # Copy as Plain Text button
+                            email_text = student_data['Email Body'].replace('`', '\\`').replace('"', '\\"').replace('\n', '\\n')
+                            
+                            if st.button(f"📄 Copy (Plain)", key=f"copy_plain_{student_id}"):
+                                st.components.v1.html(
+                                    f"""
+                                    <script>
+                                        navigator.clipboard.writeText(`{email_text}`.replace(/\\\\n/g, '\\n'));
+                                    </script>
+                                    """,
+                                    height=0
+                                )
+                                st.success("✅ Plain Text Copied!", icon="✅")
+                        
+                        with col4:
                             # Mark as sent checkbox
                             sent = st.checkbox(
                                 "✓ Sent" if is_sent else "Mark Sent",
