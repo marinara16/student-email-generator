@@ -91,7 +91,6 @@ def calculate_total_points(row):
 
 def generate_email_body(row):
     """Generate personalized email body for a student."""
-    first_name = row["First Name"]
     total_points = calculate_total_points(row)
     
     progress_lines = []
@@ -128,12 +127,7 @@ if 'generated_data' not in st.session_state:
 # Custom CSS for better styling
 st.markdown("""
 <style>
-    .student-card {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }
+
     .copy-button {
         background-color: #4CAF50;
     }
