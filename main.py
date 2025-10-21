@@ -57,10 +57,10 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
     points, status = parse_grade(grade_value)
     
     if status == "Graded":
-        return f"   * {assignment_name}: {points}/{max_points} points"
+        return f"   * {assignment_name}: {points:d}/{max_points} points"
     elif status == "Done Late":
         if points is not None:
-            return f"   * {assignment_name}: {points}/{max_points} points (Done Late)"
+            return f"   * {assignment_name}: {points:d}/{max_points} points (Done Late)"
         else:
             return f"   * {assignment_name}: Done Late/{max_points} points"
     elif status == "Missing":
@@ -107,7 +107,7 @@ I hope you're doing well! I am reaching out to you because we've passed Class #9
 
 Your current progress is summarized below. Please note this only reflects the assignments that have been graded so far. There are still assignments that haven't been assigned or graded!
 
-Current Total: {total_points} points
+Current Total: {total_points:d} points
 
 Progress so far:
 {progress_section}
