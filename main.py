@@ -91,7 +91,7 @@ def calculate_total_points(row):
 
 def generate_email_body(row):
     """Generate personalized email body for a student."""
-    first_name = row["First Name"]
+    first_name = row["Student Name"]
     total_points = calculate_total_points(row)
     
     progress_lines = []
@@ -209,7 +209,7 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         
         # Verify required columns
-        required_columns = ["Last Name", "First Name", "Email Address"]
+        required_columns = ["Student Name"]
         missing_columns = [col for col in required_columns if col not in df.columns]
         
         if missing_columns:
