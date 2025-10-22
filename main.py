@@ -29,13 +29,19 @@ def parse_classroom_data(data):
     assignments = []
     lines = course_block.strip().split('\n')
     for idx, line in enumerate(lines):
+        get = False
         if idx == 0:
             continue
-        if 'out of' in line:
-            # Extract assignment name and points
-            name = lines[idx-1]
-            points = line.strip('out of ')
-            assignments.append(f"{name} [{points}]")
+        if ('assignment' in line.lower()) or ('quiz' in line.lower()) or ('form' in line.lower()):
+            get = True
+        if get:
+            name = line
+            next_line = lines[idx+1]
+            if 'out of' in next_line:
+                points = next_line.strip('out of ')
+                assignments.append(f"{name} [{points}]")
+            else:
+                assignments.append(f"{name} [0]")
     
     # Parse student data
     students = []
@@ -53,7 +59,7 @@ def parse_classroom_data(data):
         i = 2
         while i < len(lines):
             line = lines[i]
-            if 'AssignedNo grade' in line:
+            if 'Assigned' in line:
                 grades.append('Pending')
                 i += 1
                 continue
@@ -87,6 +93,12 @@ def parse_classroom_data(data):
                 grades.append('Excused')
                 i += 1
                 continue
+
+            if 'Turned in' in line:
+                grades.append('Turned in')
+                i += 1
+                continue
+            
             i += 1
         
         students.append([student_name] + grades)
@@ -170,7 +182,7 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
         else:
             return f"• {assignment_name}: Done Late/{max_points} points"
     elif status == "Missing":
-        return f"• {assignment_name}: Missing/{max_points} points"
+        return f"• {assignment_name}: MISSING/{max_points} points"
     elif status == "Submitted":
         return f"• {assignment_name}: Submitted/{max_points} points (Pending Grade)"
     elif status == "Excused":
@@ -182,7 +194,7 @@ def calculate_total_points(row, assignments_config):
     """Calculate total points earned so far."""
     total = 0
     for assignment, config in assignments_config.items():
-        if config["assigned"]:
+        if config["assigned"] and not config.get("omitted", False):
             grade_value = row.get(assignment)
             if grade_value is not None:
                 points, status = parse_grade(grade_value)
@@ -190,14 +202,27 @@ def calculate_total_points(row, assignments_config):
                     total += points
     return int(total) if total == int(total) else total
 
+def calculate_total_available_points(assignments_config):
+    """Calculate total points available in the course (assigned + upcoming, excluding omitted)."""
+    total = 0
+    for assignment, config in assignments_config.items():
+        if not config.get("omitted", False):
+            total += config["max_points"]
+    return int(total) if total == int(total) else total
+
 def generate_email_body(row, assignments_config):
     """Generate personalized email body for a student."""
     total_points = calculate_total_points(row, assignments_config)
+    total_available = calculate_total_available_points(assignments_config)
     
     progress_lines = []
     upcoming_lines = []
     
     for assignment, config in assignments_config.items():
+        # Skip omitted assignments
+        if config.get("omitted", False):
+            continue
+            
         grade_value = row.get(assignment)
         line = format_assignment_line(assignment, grade_value, config["max_points"], config["assigned"])
         
@@ -211,11 +236,13 @@ def generate_email_body(row, assignments_config):
     
     email_body = f"""CURRENT TOTAL: {total_points} points
 
-Progress so far:
+✍️ Progress so far:
 {progress_section}
 
-Upcoming Assignments:
-{upcoming_section}"""
+📖 Upcoming Assignments:
+{upcoming_section}
+
+TOTAL POINTS AVAILABLE: {total_available}"""
     
     return email_body
 
@@ -297,9 +324,10 @@ with st.sidebar:
                 with col1:
                     new_assigned = st.checkbox(
                         "✓ Assigned",
-                        value=config["assigned"],
+                        value=config["assigned"] and not config.get("omitted", False),
                         key=f"assigned_{idx}_{name}",
-                        help="Check if this assignment has been assigned to students"
+                        help="Check if this assignment has been assigned to students",
+                        disabled=config.get("omitted", False)
                     )
                 
                 with col2:
@@ -312,9 +340,22 @@ with st.sidebar:
                         help="Maximum points for this assignment"
                     )
                 
+                # Add Omit checkbox below
+                new_omitted = st.checkbox(
+                    "⊘ Omit from emails",
+                    value=config.get("omitted", False),
+                    key=f"omitted_{idx}_{name}",
+                    help="Check to exclude this assignment from email summaries"
+                )
+                
+                # If omitted, automatically uncheck assigned
+                if new_omitted:
+                    new_assigned = False
+                
                 st.session_state.assignments_config[name] = {
                     "max_points": new_points,
-                    "assigned": new_assigned
+                    "assigned": new_assigned,
+                    "omitted": new_omitted
                 }
                 
                 st.markdown("---")
@@ -326,8 +367,9 @@ with st.sidebar:
         
         # Show current configuration summary
         with st.expander("👁️ View Current Setup"):
-            assigned_assignments = {k: v for k, v in st.session_state.assignments_config.items() if v["assigned"]}
-            upcoming_assignments = {k: v for k, v in st.session_state.assignments_config.items() if not v["assigned"]}
+            assigned_assignments = {k: v for k, v in st.session_state.assignments_config.items() if v["assigned"] and not v.get("omitted", False)}
+            upcoming_assignments = {k: v for k, v in st.session_state.assignments_config.items() if not v["assigned"] and not v.get("omitted", False)}
+            omitted_assignments = {k: v for k, v in st.session_state.assignments_config.items() if v.get("omitted", False)}
             
             st.markdown("**Assigned Assignments:**")
             if assigned_assignments:
@@ -343,8 +385,15 @@ with st.sidebar:
             else:
                 st.write("_(All assignments marked as assigned)_")
             
+            st.markdown("**⊘ Omitted Assignments:**")
+            if omitted_assignments:
+                for name, config in omitted_assignments.items():
+                    st.write(f"• {name}: {config['max_points']} points")
+            else:
+                st.write("_(No assignments omitted)_")
+            
             total_assigned_points = sum(c["max_points"] for c in assigned_assignments.values())
-            total_all_points = sum(c["max_points"] for c in st.session_state.assignments_config.values())
+            total_all_points = sum(c["max_points"] for c in st.session_state.assignments_config.values() if not c.get("omitted", False))
             st.info(f"📊 Total Assigned: {total_assigned_points} | Total Course: {total_all_points}")
     else:
         st.info("📋 Paste Google Classroom data to begin")
@@ -380,7 +429,8 @@ if st.session_state.show_add_assignment:
             # Add to assignments config as upcoming
             st.session_state.assignments_config[new_assignment_name] = {
                 "max_points": new_assignment_points,
-                "assigned": False  # Default to upcoming
+                "assigned": False,  # Default to upcoming
+                "omitted": False  # Default to not omitted
             }
             
             # Add empty column to dataframe if it exists
@@ -430,7 +480,8 @@ if raw_text and raw_text != st.session_state.raw_data:
                     has_grades = df[col].notna().any() and not all(df[col].fillna("").astype(str).str.strip() == "")
                     st.session_state.assignments_config[name] = {
                         "max_points": points,
-                        "assigned": has_grades
+                        "assigned": has_grades,
+                        "omitted": False
                     }
             
             # Rename DataFrame columns to clean names (without brackets)
