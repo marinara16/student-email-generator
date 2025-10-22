@@ -29,13 +29,17 @@ def parse_classroom_data(data):
     assignments = []
     lines = course_block.strip().split('\n')
     for idx, line in enumerate(lines):
+        get = False
         if idx == 0:
             continue
-        if 'out of' in line:
-            # Extract assignment name and points
-            name = lines[idx-1]
-            points = line.strip('out of ')
-            assignments.append(f"{name} [{points}]")
+        if ('assignment' in line.lower()) or ('quiz' in line.lower()) or ('form' in line.lower()):
+            get = True
+        if get:
+            name = line
+            next_line = lines[idx+1]
+            if 'out of' in next_line:
+                points = next_line.strip('out of ')
+                assignments.append(f"{name} [{points}]")
     
     # Parse student data
     students = []
