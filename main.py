@@ -41,7 +41,7 @@ def parse_classroom_data(data):
                 points = next_line.strip('out of ')
                 assignments.append(f"{name} [{points}]")
             else:
-                assignments.append(f"{name} [N/A]")
+                assignments.append(f"{name} [0]")
     
     # Parse student data
     students = []
