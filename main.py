@@ -53,7 +53,7 @@ def parse_classroom_data(data):
         i = 2
         while i < len(lines):
             line = lines[i]
-            if 'AssignedNo grade' in line:
+            if 'Assigned' in line:
                 grades.append('Pending')
                 i += 1
                 continue
