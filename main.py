@@ -93,6 +93,12 @@ def parse_classroom_data(data):
                 grades.append('Excused')
                 i += 1
                 continue
+
+            if 'Turned in' in line:
+                grades.append('Turned in')
+                i += 1
+                continue
+            
             i += 1
         
         students.append([student_name] + grades)
