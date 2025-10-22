@@ -75,7 +75,7 @@ def parse_classroom_data(data):
                 continue
             
             # Check for "X out of Y" pattern
-            match = re.search(r'^(\d+)\s+(\d+\s+)?out of \d+', line)
+            match = re.search(r'^([\d.]+)\s+([\d.]+\s+)?out of [\d.]+', line)
             if match:
                 grade = match.group(1)
                 if grade != '0':
