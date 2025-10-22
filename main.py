@@ -185,6 +185,8 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
         return f"• {assignment_name}: MISSING/{max_points} points"
     elif status == "Submitted":
         return f"• {assignment_name}: Submitted/{max_points} points (Pending Grade)"
+    elif status == "Pending":
+        return f"• {assignment_name}: Not submitted/{max_points} points"
     elif status == "Excused":
         return f"• {assignment_name}: Excused"
     else:
