@@ -621,28 +621,36 @@ if st.session_state.generated_data is not None:
                 st.session_state.sent_status[student_id] = sent
             
             with st.expander("👁️ Preview Grade Summary"):
-                # Plain text version for reference
-                with st.container():
-                    st.caption("Plain Text Version:")
-                    st.text_area(
-                        "Grade Summary",
-                        student_data["Grade Summary"],
-                        height=200,
-                        key=f"preview_{student_id}",
-                        label_visibility="collapsed"
-                    )
-                
-                st.markdown("---")
-                
                 # Formatted HTML version for copying
                 st.caption("📋 **Formatted Version (Copy this into HubSpot):**")
                 st.markdown(
-                    f"""<div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; font-family: Arial, sans-serif;">
+                    f"""<div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; font-family: Arial, sans-serif; color: #000000;">
                     {student_data["Grade Summary"].replace(chr(10), '<br>')}
                     </div>""",
                     unsafe_allow_html=True
                 )
-                st.info("💡 Select and copy the text above (with Ctrl+C or Cmd+C) and paste into HubSpot's rich text editor.")
+                
+                # Copy button
+                col_a, col_b = st.columns([1, 4])
+                with col_a:
+                    if st.button("📋 Copy", key=f"copy_{student_id}", use_container_width=True):
+                        # Store the HTML content for copying
+                        st.session_state[f"copied_{student_id}"] = True
+                        st.toast("✅ Copied to clipboard!", icon="✅")
+                
+                with col_b:
+                    if st.session_state.get(f"copied_{student_id}", False):
+                        st.success("Ready to paste into HubSpot!")
+                
+                # Hidden text area for copying (Streamlit's copy mechanism)
+                st.text_area(
+                    "Copy this",
+                    value=student_data["Grade Summary"],
+                    height=1,
+                    key=f"hidden_copy_{student_id}",
+                    label_visibility="collapsed",
+                    help="Use the Copy button above"
+                )
             
             st.markdown("---")
     
