@@ -168,15 +168,15 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
     """Format a single assignment line for the email."""
     if not is_assigned:
         return f"• {assignment_name}: worth {max_points} points"
-    
+
     points, status = parse_grade(grade_value)
-    
+
     # Format points as integer if it's a whole number
     if points is not None and points == int(points):
         points = int(points)
     if max_points == int(max_points):
         max_points = int(max_points)
-    
+
     if status == "Graded":
         return f"• {assignment_name}: {points}/{max_points} points"
     elif status == "Done Late":
