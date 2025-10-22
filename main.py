@@ -32,7 +32,7 @@ def parse_classroom_data(data):
         get = False
         if idx == 0:
             continue
-        if ('assignment' in line.lower()) or ('quiz' in line.lower()) or ('form' in line.lower()):
+        if ('assignment' in line.lower()) or ('quiz' in line.lower()) or ('form' in line.lower()) or ('project' in line.lower()):
             get = True
         if get:
             name = line
