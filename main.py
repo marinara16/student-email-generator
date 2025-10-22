@@ -178,14 +178,14 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
         max_points = int(max_points)
     
     if status == "Graded":
-        return f"• {assignment_name}: {points}/{max_points} points"
+        return f"• {assignment_name}: <b>{points}</b>/{max_points} points"
     elif status == "Done Late":
         if points is not None:
-            return f"• {assignment_name}: {points}/{max_points} points (Done Late)"
+            return f"• {assignment_name}: <b>{points}</b>/{max_points} points (Done Late)"
         else:
             return f"• {assignment_name}: Done Late/{max_points} points"
     elif status == "Missing":
-        return f"• {assignment_name}: MISSING/{max_points} points"
+        return f"• {assignment_name}: <span style='color: red;'><b>MISSING</b></span>/{max_points} points"
     elif status == "Submitted":
         return f"• {assignment_name}: Submitted/{max_points} points (Pending Grade)"
     elif status == "Pending":
