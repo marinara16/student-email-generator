@@ -239,15 +239,15 @@ def generate_email_body(row, assignments_config):
     progress_section = "\n".join(progress_lines)
     upcoming_section = "\n".join(upcoming_lines)
     
-    email_body = f"""CURRENT TOTAL: {total_points} points
+    email_body = f"""<b>CURRENT TOTAL: {total_points} points</b>
 
-✍️ Progress so far:
+✍️ <b>Progress so far:</b>
 {progress_section}
 
-📖 Upcoming Assignments:
+📖 <b>Upcoming Assignments:</b>
 {upcoming_section}
 
-TOTAL POINTS AVAILABLE: {total_available}"""
+<b>TOTAL POINTS AVAILABLE: {total_available}</b>"""
     
     return email_body
 
@@ -621,13 +621,28 @@ if st.session_state.generated_data is not None:
                 st.session_state.sent_status[student_id] = sent
             
             with st.expander("👁️ Preview Grade Summary"):
-                st.text_area(
-                    "Grade Summary",
-                    student_data["Grade Summary"],
-                    height=300,
-                    key=f"preview_{student_id}",
-                    label_visibility="collapsed"
+                # Plain text version for reference
+                with st.container():
+                    st.caption("Plain Text Version:")
+                    st.text_area(
+                        "Grade Summary",
+                        student_data["Grade Summary"],
+                        height=200,
+                        key=f"preview_{student_id}",
+                        label_visibility="collapsed"
+                    )
+                
+                st.markdown("---")
+                
+                # Formatted HTML version for copying
+                st.caption("📋 **Formatted Version (Copy this into HubSpot):**")
+                st.markdown(
+                    f"""<div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; font-family: Arial, sans-serif;">
+                    {student_data["Grade Summary"].replace(chr(10), '<br>')}
+                    </div>""",
+                    unsafe_allow_html=True
                 )
+                st.info("💡 Select and copy the text above (with Ctrl+C or Cmd+C) and paste into HubSpot's rich text editor.")
             
             st.markdown("---")
     
