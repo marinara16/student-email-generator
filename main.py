@@ -147,7 +147,7 @@ def parse_grade(grade_value):
         return None, "Done Late"
     
     if grade_str.lower() in ["missing", "not submitted"]:
-        return 0, "Missing"
+        return 0, "MISSING"
     
     if grade_str.lower() in ["pending", "submitted", "not graded yet", "ungraded"]:
         return None, "Submitted"
@@ -236,13 +236,13 @@ def generate_email_body(row, assignments_config):
     
     email_body = f"""CURRENT TOTAL: {total_points} points
 
-Progress so far:
+✍️ Progress so far:
 {progress_section}
 
-Upcoming Assignments:
+📖 Upcoming Assignments:
 {upcoming_section}
 
-Total Points Available: {total_available}"""
+TOTAL POINTS AVAILABLE: {total_available}"""
     
     return email_body
 
