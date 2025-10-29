@@ -32,7 +32,7 @@ def parse_classroom_data(data):
         get = False
         if idx == 0:
             continue
-        if ('assignment' in line.lower()) or ('quiz' in line.lower()) or ('form' in line.lower()) or ('project' in line.lower()) or ('book' in line.lower()):
+        if ('assignment' in line.lower()) or ('quiz' in line.lower()) or ('form' in line.lower()) or ('project' in line.lower()):
             get = True
         if get:
             name = line
@@ -535,13 +535,114 @@ if st.session_state.current_df is not None and st.session_state.assignments_conf
     # Convert to CSV
     csv_buffer = StringIO()
     download_df.to_csv(csv_buffer, index=False)
-    st.download_button(
-        label="⬇️ Download Cleaned CSV",
-        data=csv_buffer.getvalue(),
-        file_name="cleaned_classroom_data.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="⬇️ Download Cleaned CSV",
+            data=csv_buffer.getvalue(),
+            file_name="cleaned_classroom_data.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col2:
+        # Generate Class Analytics Report
+        analytics_buffer = StringIO()
+        analytics_writer = csv.writer(analytics_buffer)
+        
+        # STUDENT PERFORMANCE section
+        analytics_writer.writerow(['STUDENT PERFORMANCE'])
+        total_students = len(download_df)
+        class_avg = sum(total_points_list) / total_students if total_students > 0 else 0
+        class_median = pd.Series(total_points_list).median()
+        
+        analytics_writer.writerow(['Total Students', total_students])
+        analytics_writer.writerow(['Class Average', f'{class_avg:.2f}'])
+        analytics_writer.writerow(['Class Median', f'{class_median:.2f}'])
+        analytics_writer.writerow([])
+        
+        # CERTIFICATE DISTRIBUTION section
+        analytics_writer.writerow(['CERTIFICATE DISTRIBUTION'])
+        analytics_writer.writerow(['Status', 'Count', 'Percentage'])
+        
+        none_count = certificate_status_list.count('None')
+        participation_count = certificate_status_list.count('Participation')
+        completion_count = certificate_status_list.count('Completion')
+        
+        analytics_writer.writerow(['None', none_count, f'{(none_count/total_students*100):.1f}%'])
+        analytics_writer.writerow(['Participation', participation_count, f'{(participation_count/total_students*100):.1f}%'])
+        analytics_writer.writerow(['Completion', completion_count, f'{(completion_count/total_students*100):.1f}%'])
+        analytics_writer.writerow([])
+        
+        # PENDING ASSIGNMENTS section
+        analytics_writer.writerow(['PENDING ASSIGNMENTS'])
+        total_pending = 0
+        for idx, row in st.session_state.current_df.iterrows():
+            for assignment, config in st.session_state.assignments_config.items():
+                if not config.get("omitted", False):
+                    grade_value = row.get(assignment)
+                    points, status = parse_grade(grade_value)
+                    if status == "Submitted":
+                        total_pending += 1
+        analytics_writer.writerow(['Total Pending Assignments', total_pending])
+        analytics_writer.writerow([])
+        
+        # GRADE DISTRIBUTION section
+        analytics_writer.writerow(['GRADE DISTRIBUTION'])
+        analytics_writer.writerow(['Range', 'Count'])
+        
+        ranges = [(0, 19), (20, 39), (40, 59), (60, 79), (80, 99), (100, float('inf'))]
+        range_labels = ['0-19', '20-39', '40-59', '60-79', '80-99', '100+']
+        
+        for label, (low, high) in zip(range_labels, ranges):
+            count = sum(1 for pts in total_points_list if low <= pts <= high)
+            analytics_writer.writerow([label, count])
+        analytics_writer.writerow([])
+        
+        # ASSIGNMENT COMPLETION RATES section
+        analytics_writer.writerow(['ASSIGNMENT COMPLETION RATES'])
+        analytics_writer.writerow(['Assignment Name', 'Completion Rate'])
+        
+        for assignment, config in st.session_state.assignments_config.items():
+            if not config.get("omitted", False):
+                completed_count = 0
+                for idx, row in st.session_state.current_df.iterrows():
+                    grade_value = row.get(assignment)
+                    points, status = parse_grade(grade_value)
+                    if status in ["Graded", "Submitted", "Done Late"]:
+                        completed_count += 1
+                completion_rate = (completed_count / total_students * 100) if total_students > 0 else 0
+                analytics_writer.writerow([assignment, f'{completion_rate:.1f}%'])
+        analytics_writer.writerow([])
+        
+        # TOP 10% STUDENTS section
+        analytics_writer.writerow(['TOP 10% STUDENTS'])
+        analytics_writer.writerow(['Student Name', 'Total Points'])
+        
+        # Create list of students with their points
+        student_scores = [(download_df.iloc[i]['Student Name'], total_points_list[i]) for i in range(len(download_df))]
+        student_scores.sort(key=lambda x: x[1], reverse=True)
+        
+        # Calculate 10% threshold (include ties)
+        top_10_percent_count = max(1, int(total_students * 0.1))
+        if top_10_percent_count < len(student_scores):
+            threshold_score = student_scores[top_10_percent_count - 1][1]
+            # Include all students with score >= threshold
+            top_students = [s for s in student_scores if s[1] >= threshold_score]
+        else:
+            top_students = student_scores
+        
+        for student_name, points in top_students:
+            analytics_writer.writerow([student_name, points])
+        
+        st.download_button(
+            label="📊 Download Class Analytics",
+            data=analytics_buffer.getvalue(),
+            file_name="class_analytics_report.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
     
     st.markdown("---")
     st.header("📧 Step 4: Generate Student Email Snippets")
