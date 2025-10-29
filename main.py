@@ -507,9 +507,34 @@ if st.session_state.current_df is not None and st.session_state.assignments_conf
     with st.expander("🔍 Preview Cleaned CSV", expanded=True):
         st.dataframe(st.session_state.current_df)
     
-    # Download button for cleaned CSV
+    # Download button for cleaned CSV with calculated columns
+    # Create a copy of the dataframe with calculated columns
+    download_df = st.session_state.current_df.copy()
+    
+    # Calculate Total Points Earned and Certificate Status for each student
+    total_points_list = []
+    certificate_status_list = []
+    
+    for idx, row in download_df.iterrows():
+        total_points = calculate_total_points(row, st.session_state.assignments_config)
+        total_points_list.append(total_points)
+        
+        # Determine certificate status
+        if total_points < 40:
+            status = "None"
+        elif total_points < 80:
+            status = "Participation"
+        else:
+            status = "Completion"
+        certificate_status_list.append(status)
+    
+    # Insert new columns right after Student Name
+    download_df.insert(1, 'Total Points Earned', total_points_list)
+    download_df.insert(2, 'Certificate Status', certificate_status_list)
+    
+    # Convert to CSV
     csv_buffer = StringIO()
-    st.session_state.current_df.to_csv(csv_buffer, index=False)
+    download_df.to_csv(csv_buffer, index=False)
     st.download_button(
         label="⬇️ Download Cleaned CSV",
         data=csv_buffer.getvalue(),
