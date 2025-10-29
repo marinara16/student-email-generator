@@ -430,10 +430,6 @@ with st.sidebar:
         st.info("📋 Paste Google Classroom data to begin")
     
     st.markdown("---")
-    st.markdown("### Grade Format Guide")
-    st.code("Numbers = Graded\nLate = Late submission\nMissing = Not submitted\nPending/Submitted = Pending\nExcused = Excused\nBlank = Not assigned")
-    
-    st.markdown("---")
     if st.session_state.generated_data is not None:
         sent_count = sum(1 for v in st.session_state.sent_status.values() if v)
         total_count = len(st.session_state.generated_data)
