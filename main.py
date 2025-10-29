@@ -168,15 +168,15 @@ def format_assignment_line(assignment_name, grade_value, max_points, is_assigned
     """Format a single assignment line for the email."""
     if not is_assigned:
         return f"• {assignment_name}: worth {max_points} points"
-    
+
     points, status = parse_grade(grade_value)
-    
+
     # Format points as integer if it's a whole number
     if points is not None and points == int(points):
         points = int(points)
     if max_points == int(max_points):
         max_points = int(max_points)
-    
+
     if status == "Graded":
         return f"• {assignment_name}: <b>{points}</b>/{max_points} points"
     elif status == "Done Late":
@@ -307,8 +307,6 @@ st.markdown("""
 st.title("📧 Student Grade Summary Generator")
 st.markdown("### Quick Grade Snippets for HubSpot")
 
-st.info("💡 **Workflow:** Paste raw Google Classroom data → Auto-clean → Review assignments → Generate emails")
-
 # Sidebar for configuration
 with st.sidebar:
     st.header("⚙️ Configuration")
@@ -364,8 +362,36 @@ with st.sidebar:
                 }
                 
                 st.markdown("---")
+        
+        # Add new assignment section (inline in sidebar)
+        st.markdown("### ➕ Add New Assignment")
+        if st.session_state.show_add_assignment:
+            new_assignment_name = st.text_input("Assignment Name", placeholder="e.g., Final Project", key="new_assign_name")
+            new_assignment_points = st.number_input("Max Points", min_value=1, value=10, step=1, key="new_assign_points")
             
-            # Add new assignment button
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Add", type="primary", use_container_width=True):
+                    if new_assignment_name:
+                        # Add to assignments config as upcoming
+                        st.session_state.assignments_config[new_assignment_name] = {
+                            "max_points": new_assignment_points,
+                            "assigned": False,
+                            "omitted": False
+                        }
+                        
+                        # Add empty column to dataframe if it exists
+                        if st.session_state.current_df is not None:
+                            st.session_state.current_df[new_assignment_name] = ""
+                        
+                        st.session_state.show_add_assignment = False
+                        st.success(f"✅ Added '{new_assignment_name}'")
+                        st.rerun()
+            with col2:
+                if st.button("Cancel", use_container_width=True):
+                    st.session_state.show_add_assignment = False
+                    st.rerun()
+        else:
             if st.button("➕ Add New Assignment", use_container_width=True):
                 st.session_state.show_add_assignment = True
                 st.rerun()
@@ -416,39 +442,6 @@ with st.sidebar:
         if sent_count > 0:
             progress_pct = (sent_count / total_count) * 100
             st.progress(progress_pct / 100)
-
-# Modal for adding new assignment
-if st.session_state.show_add_assignment:
-    with st.form("add_assignment_form"):
-        st.subheader("➕ Add New Assignment")
-        new_assignment_name = st.text_input("Assignment Name", placeholder="e.g., Final Project")
-        new_assignment_points = st.number_input("Max Points", min_value=1, value=10, step=1)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            submit = st.form_submit_button("Add Assignment", type="primary", use_container_width=True)
-        with col2:
-            cancel = st.form_submit_button("Cancel", use_container_width=True)
-        
-        if submit and new_assignment_name:
-            # Add to assignments config as upcoming
-            st.session_state.assignments_config[new_assignment_name] = {
-                "max_points": new_assignment_points,
-                "assigned": False,  # Default to upcoming
-                "omitted": False  # Default to not omitted
-            }
-            
-            # Add empty column to dataframe if it exists
-            if st.session_state.current_df is not None:
-                st.session_state.current_df[new_assignment_name] = ""
-            
-            st.session_state.show_add_assignment = False
-            st.success(f"✅ Added '{new_assignment_name}' as upcoming assignment")
-            st.rerun()
-        
-        if cancel:
-            st.session_state.show_add_assignment = False
-            st.rerun()
 
 # Main content area - Data input
 st.header("📋 Step 1: Paste Google Classroom Data")
@@ -504,23 +497,33 @@ if raw_text and raw_text != st.session_state.raw_data:
         st.error(f"❌ Error processing data: {str(e)}")
         st.info("Please make sure you've pasted valid Google Classroom data.")
 
-# Show cleaned CSV preview
-if st.session_state.cleaned_csv is not None:
+# Step 2: Configure Assignments (reference to sidebar)
+if st.session_state.current_df is not None:
     st.markdown("---")
-    st.header("📊 Step 2: Review Cleaned Data")
+    st.header("⚙️ Step 2: Configure Assignments")
+    st.info("👈 Use the sidebar to configure which assignments are 'Assigned' vs 'Upcoming', adjust point values, and add new assignments.")
+
+# Show cleaned CSV preview - Step 3
+if st.session_state.current_df is not None and st.session_state.assignments_config:
+    st.markdown("---")
+    st.header("📊 Step 3: Review Cleaned Student Data")
     
     with st.expander("🔍 Preview Cleaned CSV", expanded=True):
         st.dataframe(st.session_state.current_df)
     
-    # Show detected assignments
-    if st.session_state.assignments_config:
-        with st.expander("📝 Detected Assignments"):
-            for name, config in st.session_state.assignments_config.items():
-                status = "✓ Assigned" if config["assigned"] else "⏳ Upcoming"
-                st.write(f"• **{name}** ({config['max_points']} pts) - {status}")
+    # Download button for cleaned CSV
+    csv_buffer = StringIO()
+    st.session_state.current_df.to_csv(csv_buffer, index=False)
+    st.download_button(
+        label="⬇️ Download Cleaned CSV",
+        data=csv_buffer.getvalue(),
+        file_name="cleaned_classroom_data.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
     
     st.markdown("---")
-    st.header("📧 Step 3: Generate Emails")
+    st.header("📧 Step 4: Generate Student Email Snippets")
     
     # Generate emails button
     if st.button("🚀 Generate Grade Summaries", type="primary", use_container_width=True):
@@ -568,7 +571,7 @@ if st.session_state.cleaned_csv is not None:
 # Display individual student grade summaries
 if st.session_state.generated_data is not None:
     st.markdown("---")
-    st.header("📊 Individual Student Grade Summaries")
+    st.header("📨 Individual Student Grade Summaries")
     
     # Filter options
     col1, col2 = st.columns(2)
@@ -624,7 +627,7 @@ if st.session_state.generated_data is not None:
                 # Formatted HTML version for copying
                 st.caption("📋 **Formatted Version (Select and copy this into HubSpot):**")
                 st.markdown(
-                    f"""<div style="padding: 15px; font-family: Arial, sans-serif; color: #000000; user-select: all;">
+                    f"""<div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; font-family: Arial, sans-serif; color: #000000; user-select: all;">
                     {student_data["Grade Summary"].replace(chr(10), '<br>')}
                     </div>""",
                     unsafe_allow_html=True
