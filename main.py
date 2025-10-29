@@ -648,7 +648,7 @@ if st.session_state.generated_data is not None:
                 # Formatted HTML version for copying
                 st.caption("📋 **Formatted Version (Select and copy this into HubSpot):**")
                 st.markdown(
-                    f"""<div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; font-family: Arial, sans-serif; color: #000000; user-select: all;">
+                    f"""<div style="padding: 15px; border-radius: 5px; border: 1px solid #ddd; font-family: Arial, sans-serif; user-select: all;">
                     {student_data["Grade Summary"].replace(chr(10), '<br>')}
                     </div>""",
                     unsafe_allow_html=True
