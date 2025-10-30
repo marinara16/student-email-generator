@@ -2,7 +2,11 @@ import streamlit as st
 import pandas as pd
 import csv
 import re
-from io import StringIO
+from io import StringIO, BytesIO
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Page configuration
 st.set_page_config(
@@ -250,6 +254,262 @@ def generate_email_body(row, assignments_config):
 <b>TOTAL POINTS AVAILABLE: {total_available}</b>"""
     
     return email_body
+
+def generate_excel_with_formatting(df, assignments_config):
+    """Generate Excel file with color coding and analytics."""
+    wb = Workbook()
+    
+    # Define colors
+    light_green = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    light_yellow = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    # Sheet 1: Student Data
+    ws1 = wb.active
+    ws1.title = "Student Data"
+    
+    # Calculate Total Points Earned and Certificate Status
+    total_points_list = []
+    certificate_status_list = []
+    
+    for idx, row in df.iterrows():
+        total_points = calculate_total_points(row, assignments_config)
+        total_points_list.append(total_points)
+        
+        if total_points < 40:
+            status = "None"
+        elif total_points < 80:
+            status = "Participation"
+        else:
+            status = "Completion"
+        certificate_status_list.append(status)
+    
+    # Add calculated columns to dataframe
+    df_export = df.copy()
+    df_export.insert(1, 'Total Points Earned', total_points_list)
+    df_export.insert(2, 'Certificate Status', certificate_status_list)
+    
+    # Write data to sheet
+    for r_idx, row in enumerate(dataframe_to_rows(df_export, index=False, header=True), 1):
+        for c_idx, value in enumerate(row, 1):
+            cell = ws1.cell(row=r_idx, column=c_idx, value=value)
+            
+            # Format header row
+            if r_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            else:
+                # Color code Total Points Earned (column B)
+                if c_idx == 2:
+                    if isinstance(value, (int, float)):
+                        if value >= 80:
+                            cell.fill = light_green
+                        elif value >= 40:
+                            cell.fill = light_yellow
+                
+                # Color code Certificate Status (column C)
+                elif c_idx == 3:
+                    if value == "Completion":
+                        cell.fill = light_green
+                    elif value == "Participation":
+                        cell.fill = light_yellow
+                
+                # Color code assignment columns for Submitted/Pending
+                elif c_idx > 3:
+                    if isinstance(value, str):
+                        value_lower = value.lower()
+                        if any(keyword in value_lower for keyword in ['submitted', 'pending', 'not graded']):
+                            cell.fill = light_yellow
+    
+    # Auto-adjust column widths
+    for column in ws1.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws1.column_dimensions[column_letter].width = adjusted_width
+    
+    # Sheet 2: Class Analytics
+    ws2 = wb.create_sheet("Class Analytics")
+    
+    # Calculate analytics data
+    total_students = len(df_export)
+    class_avg = sum(total_points_list) / total_students if total_students > 0 else 0
+    class_median = pd.Series(total_points_list).median()
+    
+    none_count = certificate_status_list.count('None')
+    participation_count = certificate_status_list.count('Participation')
+    completion_count = certificate_status_list.count('Completion')
+    
+    # Write analytics data
+    current_row = 1
+    
+    # Student Performance section
+    ws2.cell(row=current_row, column=1, value="STUDENT PERFORMANCE").font = Font(bold=True, size=14)
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Total Students")
+    ws2.cell(row=current_row, column=2, value=total_students)
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Class Average")
+    ws2.cell(row=current_row, column=2, value=round(class_avg, 2))
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Class Median")
+    ws2.cell(row=current_row, column=2, value=class_median)
+    current_row += 2
+    
+    # Certificate Distribution section
+    cert_dist_start = current_row
+    ws2.cell(row=current_row, column=1, value="CERTIFICATE DISTRIBUTION").font = Font(bold=True, size=14)
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Status")
+    ws2.cell(row=current_row, column=2, value="Count")
+    ws2.cell(row=current_row, column=3, value="Percentage")
+    current_row += 1
+    
+    cert_data_start = current_row
+    ws2.cell(row=current_row, column=1, value="None")
+    ws2.cell(row=current_row, column=2, value=none_count)
+    ws2.cell(row=current_row, column=3, value=f"{(none_count/total_students*100):.1f}%")
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Participation")
+    ws2.cell(row=current_row, column=2, value=participation_count)
+    ws2.cell(row=current_row, column=3, value=f"{(participation_count/total_students*100):.1f}%")
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Completion")
+    ws2.cell(row=current_row, column=2, value=completion_count)
+    ws2.cell(row=current_row, column=3, value=f"{(completion_count/total_students*100):.1f}%")
+    current_row += 2
+    
+    # Grade Distribution section
+    grade_dist_start = current_row
+    ws2.cell(row=current_row, column=1, value="GRADE DISTRIBUTION").font = Font(bold=True, size=14)
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Range")
+    ws2.cell(row=current_row, column=2, value="Count")
+    current_row += 1
+    
+    ranges = [(0, 19), (20, 39), (40, 59), (60, 79), (80, 99), (100, 1000)]
+    range_labels = ['0-19', '20-39', '40-59', '60-79', '80-99', '100+']
+    
+    grade_data_start = current_row
+    for label, (low, high) in zip(range_labels, ranges):
+        count = sum(1 for pts in total_points_list if low <= pts <= high)
+        ws2.cell(row=current_row, column=1, value=label)
+        ws2.cell(row=current_row, column=2, value=count)
+        current_row += 1
+    grade_data_end = current_row - 1
+    current_row += 1
+    
+    # Pending Assignments section
+    ws2.cell(row=current_row, column=1, value="PENDING ASSIGNMENTS").font = Font(bold=True, size=14)
+    current_row += 1
+    total_pending = 0
+    for idx, row_data in df.iterrows():
+        for assignment, config in assignments_config.items():
+            if not config.get("omitted", False):
+                grade_value = row_data.get(assignment)
+                points, status = parse_grade(grade_value)
+                if status == "Submitted":
+                    total_pending += 1
+    ws2.cell(row=current_row, column=1, value="Total Pending Assignments")
+    ws2.cell(row=current_row, column=2, value=total_pending)
+    current_row += 2
+    
+    # Assignment Completion Rates section
+    ws2.cell(row=current_row, column=1, value="ASSIGNMENT COMPLETION RATES").font = Font(bold=True, size=14)
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Assignment Name")
+    ws2.cell(row=current_row, column=2, value="Completion Rate")
+    current_row += 1
+    
+    for assignment, config in assignments_config.items():
+        if not config.get("omitted", False):
+            completed_count = 0
+            for idx, row_data in df.iterrows():
+                grade_value = row_data.get(assignment)
+                points, status = parse_grade(grade_value)
+                if status in ["Graded", "Submitted", "Done Late"]:
+                    completed_count += 1
+            completion_rate = (completed_count / total_students * 100) if total_students > 0 else 0
+            ws2.cell(row=current_row, column=1, value=assignment)
+            ws2.cell(row=current_row, column=2, value=f"{completion_rate:.1f}%")
+            current_row += 1
+    current_row += 1
+    
+    # Top 10% Students section
+    ws2.cell(row=current_row, column=1, value="TOP 10% STUDENTS").font = Font(bold=True, size=14)
+    current_row += 1
+    ws2.cell(row=current_row, column=1, value="Student Name")
+    ws2.cell(row=current_row, column=2, value="Total Points")
+    current_row += 1
+    
+    student_scores = [(df_export.iloc[i]['Student Name'], total_points_list[i]) for i in range(len(df_export))]
+    student_scores.sort(key=lambda x: x[1], reverse=True)
+    
+    top_10_percent_count = max(1, int(total_students * 0.1))
+    if top_10_percent_count < len(student_scores):
+        threshold_score = student_scores[top_10_percent_count - 1][1]
+        top_students = [s for s in student_scores if s[1] >= threshold_score]
+    else:
+        top_students = student_scores
+    
+    for student_name, points in top_students:
+        ws2.cell(row=current_row, column=1, value=student_name)
+        ws2.cell(row=current_row, column=2, value=points)
+        current_row += 1
+    
+    # Add Certificate Distribution Pie Chart
+    pie_chart = PieChart()
+    pie_chart.title = "Certificate Distribution"
+    pie_chart.style = 10
+    
+    labels = Reference(ws2, min_col=1, min_row=cert_data_start, max_row=cert_data_start + 2)
+    data = Reference(ws2, min_col=2, min_row=cert_data_start - 1, max_row=cert_data_start + 2)
+    pie_chart.add_data(data, titles_from_data=True)
+    pie_chart.set_categories(labels)
+    
+    ws2.add_chart(pie_chart, "E6")
+    
+    # Add Grade Distribution Bar Chart
+    bar_chart = BarChart()
+    bar_chart.title = "Grade Distribution"
+    bar_chart.x_axis.title = "Grade Range"
+    bar_chart.y_axis.title = "Number of Students"
+    bar_chart.style = 10
+    
+    labels = Reference(ws2, min_col=1, min_row=grade_data_start, max_row=grade_data_end)
+    data = Reference(ws2, min_col=2, min_row=grade_data_start - 1, max_row=grade_data_end)
+    bar_chart.add_data(data, titles_from_data=True)
+    bar_chart.set_categories(labels)
+    
+    ws2.add_chart(bar_chart, "E22")
+    
+    # Auto-adjust column widths for analytics sheet
+    for column in ws2.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws2.column_dimensions[column_letter].width = adjusted_width
+    
+    # Save to BytesIO
+    excel_buffer = BytesIO()
+    wb.save(excel_buffer)
+    excel_buffer.seek(0)
+    
+    return excel_buffer.getvalue()
 
 # Initialize session state
 if 'sent_status' not in st.session_state:
@@ -507,141 +767,56 @@ if st.session_state.current_df is not None and st.session_state.assignments_conf
     with st.expander("🔍 Preview Cleaned CSV", expanded=True):
         st.dataframe(st.session_state.current_df)
     
-    # Download button for cleaned CSV with calculated columns
-    # Create a copy of the dataframe with calculated columns
-    download_df = st.session_state.current_df.copy()
-    
-    # Calculate Total Points Earned and Certificate Status for each student
-    total_points_list = []
-    certificate_status_list = []
-    
-    for idx, row in download_df.iterrows():
-        total_points = calculate_total_points(row, st.session_state.assignments_config)
-        total_points_list.append(total_points)
-        
-        # Determine certificate status
-        if total_points < 40:
-            status = "None"
-        elif total_points < 80:
-            status = "Participation"
-        else:
-            status = "Completion"
-        certificate_status_list.append(status)
-    
-    # Insert new columns right after Student Name
-    download_df.insert(1, 'Total Points Earned', total_points_list)
-    download_df.insert(2, 'Certificate Status', certificate_status_list)
-    
-    # Convert to CSV
-    csv_buffer = StringIO()
-    download_df.to_csv(csv_buffer, index=False)
+    # Download button for Excel file with formatting
+    st.markdown("### 📥 Download Data")
     
     col1, col2 = st.columns(2)
+    
     with col1:
+        # Generate Excel file
+        excel_data = generate_excel_with_formatting(st.session_state.current_df, st.session_state.assignments_config)
+        
         st.download_button(
-            label="⬇️ Download Cleaned CSV",
-            data=csv_buffer.getvalue(),
-            file_name="cleaned_classroom_data.csv",
-            mime="text/csv",
-            use_container_width=True
+            label="📊 Download Excel Report (with colors & charts)",
+            data=excel_data,
+            file_name="classroom_data_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            help="Downloads formatted Excel file with color coding and analytics charts"
         )
     
     with col2:
-        # Generate Class Analytics Report
-        analytics_buffer = StringIO()
-        analytics_writer = csv.writer(analytics_buffer)
+        # Also keep CSV option for compatibility
+        download_df = st.session_state.current_df.copy()
         
-        # STUDENT PERFORMANCE section
-        analytics_writer.writerow(['STUDENT PERFORMANCE'])
-        total_students = len(download_df)
-        class_avg = sum(total_points_list) / total_students if total_students > 0 else 0
-        class_median = pd.Series(total_points_list).median()
+        total_points_list = []
+        certificate_status_list = []
         
-        analytics_writer.writerow(['Total Students', total_students])
-        analytics_writer.writerow(['Class Average', f'{class_avg:.2f}'])
-        analytics_writer.writerow(['Class Median', f'{class_median:.2f}'])
-        analytics_writer.writerow([])
+        for idx, row in download_df.iterrows():
+            total_points = calculate_total_points(row, st.session_state.assignments_config)
+            total_points_list.append(total_points)
+            
+            if total_points < 40:
+                status = "None"
+            elif total_points < 80:
+                status = "Participation"
+            else:
+                status = "Completion"
+            certificate_status_list.append(status)
         
-        # CERTIFICATE DISTRIBUTION section
-        analytics_writer.writerow(['CERTIFICATE DISTRIBUTION'])
-        analytics_writer.writerow(['Status', 'Count', 'Percentage'])
+        download_df.insert(1, 'Total Points Earned', total_points_list)
+        download_df.insert(2, 'Certificate Status', certificate_status_list)
         
-        none_count = certificate_status_list.count('None')
-        participation_count = certificate_status_list.count('Participation')
-        completion_count = certificate_status_list.count('Completion')
-        
-        analytics_writer.writerow(['None', none_count, f'{(none_count/total_students*100):.1f}%'])
-        analytics_writer.writerow(['Participation', participation_count, f'{(participation_count/total_students*100):.1f}%'])
-        analytics_writer.writerow(['Completion', completion_count, f'{(completion_count/total_students*100):.1f}%'])
-        analytics_writer.writerow([])
-        
-        # PENDING ASSIGNMENTS section
-        analytics_writer.writerow(['PENDING ASSIGNMENTS'])
-        total_pending = 0
-        for idx, row in st.session_state.current_df.iterrows():
-            for assignment, config in st.session_state.assignments_config.items():
-                if not config.get("omitted", False):
-                    grade_value = row.get(assignment)
-                    points, status = parse_grade(grade_value)
-                    if status == "Submitted":
-                        total_pending += 1
-        analytics_writer.writerow(['Total Pending Assignments', total_pending])
-        analytics_writer.writerow([])
-        
-        # GRADE DISTRIBUTION section
-        analytics_writer.writerow(['GRADE DISTRIBUTION'])
-        analytics_writer.writerow(['Range', 'Count'])
-        
-        ranges = [(0, 19), (20, 39), (40, 59), (60, 79), (80, 99), (100, float('inf'))]
-        range_labels = ['0-19', '20-39', '40-59', '60-79', '80-99', '100+']
-        
-        for label, (low, high) in zip(range_labels, ranges):
-            count = sum(1 for pts in total_points_list if low <= pts <= high)
-            analytics_writer.writerow([label, count])
-        analytics_writer.writerow([])
-        
-        # ASSIGNMENT COMPLETION RATES section
-        analytics_writer.writerow(['ASSIGNMENT COMPLETION RATES'])
-        analytics_writer.writerow(['Assignment Name', 'Completion Rate'])
-        
-        for assignment, config in st.session_state.assignments_config.items():
-            if not config.get("omitted", False):
-                completed_count = 0
-                for idx, row in st.session_state.current_df.iterrows():
-                    grade_value = row.get(assignment)
-                    points, status = parse_grade(grade_value)
-                    if status in ["Graded", "Submitted", "Done Late"]:
-                        completed_count += 1
-                completion_rate = (completed_count / total_students * 100) if total_students > 0 else 0
-                analytics_writer.writerow([assignment, f'{completion_rate:.1f}%'])
-        analytics_writer.writerow([])
-        
-        # TOP 10% STUDENTS section
-        analytics_writer.writerow(['TOP 10% STUDENTS'])
-        analytics_writer.writerow(['Student Name', 'Total Points'])
-        
-        # Create list of students with their points
-        student_scores = [(download_df.iloc[i]['Student Name'], total_points_list[i]) for i in range(len(download_df))]
-        student_scores.sort(key=lambda x: x[1], reverse=True)
-        
-        # Calculate 10% threshold (include ties)
-        top_10_percent_count = max(1, int(total_students * 0.1))
-        if top_10_percent_count < len(student_scores):
-            threshold_score = student_scores[top_10_percent_count - 1][1]
-            # Include all students with score >= threshold
-            top_students = [s for s in student_scores if s[1] >= threshold_score]
-        else:
-            top_students = student_scores
-        
-        for student_name, points in top_students:
-            analytics_writer.writerow([student_name, points])
+        csv_buffer = StringIO()
+        download_df.to_csv(csv_buffer, index=False)
         
         st.download_button(
-            label="📊 Download Class Analytics",
-            data=analytics_buffer.getvalue(),
-            file_name="class_analytics_report.csv",
+            label="⬇️ Download CSV (basic)",
+            data=csv_buffer.getvalue(),
+            file_name="cleaned_classroom_data.csv",
             mime="text/csv",
-            use_container_width=True
+            use_container_width=True,
+            help="Downloads basic CSV without formatting"
         )
     
     st.markdown("---")
