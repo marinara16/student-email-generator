@@ -285,8 +285,11 @@ def generate_excel_with_formatting(df, assignments_config):
             status = "Completion"
         certificate_status_list.append(status)
     
-    # Add calculated columns to dataframe
-    df_export = df.copy()
+    # Filter out omitted assignment columns
+    omitted_assignments = [name for name, config in assignments_config.items() if config.get("omitted", False)]
+    df_export = df.drop(columns=omitted_assignments, errors='ignore').copy()
+    
+    # Add calculated columns to filtered dataframe
     df_export.insert(1, 'Total Points Earned', total_points_list)
     df_export.insert(2, 'Certificate Status', certificate_status_list)
     
